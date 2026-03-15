@@ -22,56 +22,15 @@ jobs:
           node-version: 'lts/*'
           registry-url: 'https://registry.npmjs.org'
 
-      - run: pnpm install
-
-      - name: Build client
+      - name: Install and build
         working-directory: ts
-        run: pnpm build
+        run: |
+          pnpm install
+          pnpm build
 
       - name: Publish @ackagent/api
         working-directory: ts
         run: pnpm publish --access public --no-git-checks --provenance
-
-  publish-kotlin:
-    name: Publish Kotlin package
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - uses: gradle/actions/setup-gradle@v4
-
-      - name: Publish to GitHub Packages
-        working-directory: kotlin
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          VERSION="${TAG_NAME#v}"
-          ./gradlew publish -Pversion="$VERSION"
-
-      - name: Publish Maven artifacts for GitHub Pages
-        working-directory: kotlin
-        env:
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          VERSION="${TAG_NAME#v}"
-          ./gradlew publishMavenPublicationToPagesRepository -Pversion="$VERSION"
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: kotlin/build/pages-maven
-          keep_files: true
 
   verify-go-module:
     name: Verify Go module
