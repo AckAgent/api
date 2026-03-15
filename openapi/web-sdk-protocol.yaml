@@ -1,0 +1,52 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Web SDK Protocol Types
+  version: '1.0'
+  description: |-
+    Subset of protocol types for the Web SDK. This includes only the types needed
+    for web-based authentication and approval flows:
+    - Common types (TransactionType, SigningErrorCode)
+    - Display types (GenericDisplaySchema, DisplayField)
+    - Base types (BasePayload)
+    - Web types (WebPayload, WebApprovalResponse, BrowserMetadata)
+
+    This optimized entry point reduces the generated TypeScript bundle size by
+    excluding SSH, GPG, Age, ECDH, PAM, enrollment, and Claude Code types.
+servers:
+  - url: https://api.ackagent.com
+    description: Production API (types only, no endpoints)
+tags: []
+paths: {}
+components:
+  schemas:
+    # ==========================================================================
+    # Common Types (subset needed for web)
+    # ==========================================================================
+    AckAgent.Common.SigningErrorCode:
+      $ref: './e2ee-protocol/common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+    AckAgent.Common.TransactionType:
+      $ref: './e2ee-protocol/common.yaml#/components/schemas/AckAgent.Common.TransactionType'
+
+    # ==========================================================================
+    # Display Types (all needed for web approval UI)
+    # ==========================================================================
+    GenericDisplaySchema:
+      $ref: './e2ee-protocol/display.yaml#/components/schemas/GenericDisplaySchema'
+    DisplayField:
+      $ref: './e2ee-protocol/display.yaml#/components/schemas/DisplayField'
+
+    # ==========================================================================
+    # Base Types (BasePayload for common structure)
+    # ==========================================================================
+    BasePayload:
+      $ref: './e2ee-protocol/base.yaml#/components/schemas/BasePayload'
+
+    # ==========================================================================
+    # Web Types (core web SDK types)
+    # ==========================================================================
+    WebPayload:
+      $ref: './e2ee-protocol/web.yaml#/components/schemas/WebPayload'
+    WebApprovalResponse:
+      $ref: './e2ee-protocol/web.yaml#/components/schemas/WebApprovalResponse'
+    BrowserMetadata:
+      $ref: './e2ee-protocol/web.yaml#/components/schemas/BrowserMetadata'

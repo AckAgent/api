@@ -1,0 +1,99 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - SSH Types
+  version: '1.0'
+  description: SSH authentication and signing payload types.
+paths: {}
+components:
+  schemas:
+    SshAuthPayload:
+      type: object
+      required:
+        - type
+        - rawData
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - ssh_auth
+          example: ssh_auth
+        rawData:
+          type: string
+          format: byte
+          description: >-
+            Base64-encoded raw SSH challenge data (preimage). The approver constructs
+            the SSH signature input from this preimage.
+          example: c3NoIGNoYWxsZW5nZQ==
+        keyId:
+          type: string
+          description: Key ID to use for signing.
+          example: key_abc123
+        application:
+          type: string
+          description: SSH application identifier (e.g., "ssh:").
+          example: "ssh:"
+        flags:
+          type: integer
+          format: int32
+          description: SSH SK flags bitmask (default 0x01 = user presence required).
+          default: 1
+          example: 1
+        iosKeyId:
+          type: string
+          description: iOS key identifier for key selection.
+          example: key_abc123
+      description: SSH authentication request payload.
+
+    SshSignPayload:
+      type: object
+      required:
+        - type
+        - rawData
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - ssh_sign
+          example: ssh_sign
+        rawData:
+          type: string
+          format: byte
+          description: >-
+            Base64-encoded raw data to sign (preimage). The approver constructs
+            the SSH signature input from this preimage.
+          example: ZGF0YSB0byBzaWdu
+        keyId:
+          type: string
+          description: Key ID to use for signing.
+          example: key_abc123
+        application:
+          type: string
+          description: SSH application identifier (e.g., "ssh:").
+          example: "ssh:"
+        flags:
+          type: integer
+          format: int32
+          description: SSH SK flags bitmask (default 0x01 = user presence required).
+          default: 1
+          example: 1
+        iosKeyId:
+          type: string
+          description: iOS key identifier for key selection.
+          example: key_abc123
+      description: SSH signing request payload.

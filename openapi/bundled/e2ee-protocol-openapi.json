@@ -1,0 +1,2294 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AckAgent Protocol Types",
+    "version": "1.0",
+    "license": {
+      "name": "Proprietary",
+      "url": "https://ackagent.com/terms"
+    },
+    "description": "Type definitions for the AckAgent signing protocol. These types define the structure\nof encrypted request and response payloads exchanged between requesters and approver\ndevices.\n\nAll payloads are encrypted end-to-end using P-256 ECDH key exchange and ChaCha20-Poly1305.\nThe relay service cannot read the contents of these payloads.\n\nThis master file aggregates all protocol types from modular component files."
+  },
+  "servers": [
+    {
+      "url": "https://api.ackagent.com",
+      "description": "Production API (types only, no endpoints)"
+    }
+  ],
+  "tags": [],
+  "paths": {},
+  "components": {
+    "schemas": {
+      "AckAgent.Common.AttestationSecurityType": {
+        "type": "string",
+        "enum": [
+          "ios_secure_enclave",
+          "android_tee",
+          "android_strongbox",
+          "software",
+          "play_integrity"
+        ],
+        "description": "Combined platform and security level for attestation."
+      },
+      "AckAgent.Common.ApproverDeviceType": {
+        "type": "string",
+        "enum": [
+          "ios",
+          "android"
+        ],
+        "description": "Device platform type."
+      },
+      "AckAgent.Common.AnonymousAttestation": {
+        "type": "object",
+        "required": [
+          "@context",
+          "type",
+          "proof",
+          "ackagentAnonymousAttestation"
+        ],
+        "properties": {
+          "@context": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "JSON-LD context array for VC/Data Integrity semantics."
+          },
+          "type": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Presentation type array (includes VerifiablePresentation)."
+          },
+          "proof": {
+            "$ref": "#/components/schemas/AckAgent.Common.DataIntegrityProof"
+          },
+          "ackagentAnonymousAttestation": {
+            "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestationPayload"
+          }
+        },
+        "description": "Anonymous attestation envelope using W3C Data Integrity (`bbs-2023`). Proves the response came from a genuine device with a valid credential from a known issuer without revealing device identity. Travels inside the encrypted response blob so the relay stays completely blind."
+      },
+      "AckAgent.Common.KeyPurpose": {
+        "type": "string",
+        "enum": [
+          "ssh",
+          "gpg",
+          "age"
+        ],
+        "description": "Purpose of the key being enrolled.",
+        "example": "ssh"
+      },
+      "AckAgent.Common.SigningErrorCode": {
+        "type": "integer",
+        "enum": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "description": "Error codes for signing failures (1=rejected, 2=timeout, 3=key_not_found, 4=invalid_payload, 5=attestation_failed, 6=internal_error).",
+        "example": 1
+      },
+      "AckAgent.Common.TransactionType": {
+        "type": "string",
+        "enum": [
+          "ssh_auth",
+          "ssh_sign",
+          "gpg_sign",
+          "gpg_decrypt",
+          "age_unwrap",
+          "ecdh_derive",
+          "custom",
+          "claude_approval",
+          "claude_question",
+          "enroll",
+          "device_login",
+          "web",
+          "pam_auth",
+          "captcha"
+        ],
+        "description": "Type of signing or approval request.",
+        "example": "gpg_sign"
+      },
+      "GenericDisplaySchema": {
+        "type": "object",
+        "required": [
+          "title",
+          "fields"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Main title for the approval screen.",
+            "example": "Sign Git Commit"
+          },
+          "historyTitle": {
+            "type": "string",
+            "description": "Shorter title for history list view.",
+            "example": "Git Commit"
+          },
+          "subtitle": {
+            "type": "string",
+            "description": "Subtitle with additional context.",
+            "example": "user/repo on main"
+          },
+          "icon": {
+            "type": "string",
+            "description": "SF Symbol name for iOS.",
+            "example": "signature"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DisplayField"
+            },
+            "description": "Fields to display in the approval UI."
+          }
+        },
+        "description": "Schema for displaying approval requests to users."
+      },
+      "DisplayField": {
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Label for the field.",
+            "example": "Repository"
+          },
+          "value": {
+            "type": "string",
+            "description": "Value to display.",
+            "example": "github.com/user/repo"
+          },
+          "monospace": {
+            "type": "boolean",
+            "description": "Render value in monospace font.",
+            "default": false,
+            "example": true
+          },
+          "expandable": {
+            "type": "boolean",
+            "description": "Field can be expanded to show more content.",
+            "default": false,
+            "example": false
+          },
+          "multiline": {
+            "type": "boolean",
+            "description": "Render value as multiline text.",
+            "default": false,
+            "example": false
+          },
+          "sensitive": {
+            "type": "boolean",
+            "description": "Value contains sensitive information.",
+            "default": false,
+            "example": false
+          },
+          "icon": {
+            "type": "string",
+            "description": "SF Symbol name for iOS UI.",
+            "example": "server.rack"
+          }
+        },
+        "description": "A field to display in the approval UI."
+      },
+      "ProcessEntry": {
+        "type": "object",
+        "required": [
+          "pid",
+          "username",
+          "command"
+        ],
+        "properties": {
+          "pid": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Process ID.",
+            "example": 12345
+          },
+          "username": {
+            "type": "string",
+            "description": "Username running the process.",
+            "example": "root"
+          },
+          "command": {
+            "type": "string",
+            "description": "Command line of the process.",
+            "example": "/usr/bin/sudo apt update"
+          }
+        },
+        "description": "Entry in a process tree."
+      },
+      "SourceInfo": {
+        "type": "object",
+        "properties": {
+          "hostname": {
+            "type": "string",
+            "description": "Source machine hostname.",
+            "example": "laptop.local"
+          },
+          "localIp": {
+            "type": "string",
+            "description": "Local/private IP address.",
+            "example": "192.168.1.50"
+          },
+          "username": {
+            "type": "string",
+            "description": "User running the process.",
+            "example": "admin"
+          },
+          "command": {
+            "type": "string",
+            "description": "Command line of the current process.",
+            "example": "git commit -S -m \"message\""
+          },
+          "processChain": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProcessEntry"
+            },
+            "description": "Full process tree from current process up to init."
+          }
+        },
+        "description": "Information about the requesting system and process ancestry."
+      },
+      "BasePayload": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.TransactionType"
+              }
+            ],
+            "description": "Type of request."
+          },
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information. Present on CLI-originated requests."
+          }
+        },
+        "description": "Base structure for all encrypted payloads."
+      },
+      "SignatureResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64url-encoded signature.",
+            "example": "c2lnbmF0dXJl"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Request correlation ID.",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "description": "Approval status.",
+            "example": "approved"
+          },
+          "counter": {
+            "type": "integer",
+            "format": "int32",
+            "description": "SSH replay protection counter.",
+            "example": 1
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if signing failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User rejected the request"
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestation"
+              }
+            ],
+            "description": "Anonymous attestation proving the response came from a genuine device. Present for all approval responses. Inside the encrypted blob."
+          }
+        },
+        "description": "Generic signature response for SSH and custom requests."
+      },
+      "SshAuthPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "rawData"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "ssh_auth"
+            ],
+            "example": "ssh_auth"
+          },
+          "rawData": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded raw SSH challenge data (preimage). The approver constructs the SSH signature input from this preimage.",
+            "example": "c3NoIGNoYWxsZW5nZQ=="
+          },
+          "keyId": {
+            "type": "string",
+            "description": "Key ID to use for signing.",
+            "example": "key_abc123"
+          },
+          "application": {
+            "type": "string",
+            "description": "SSH application identifier (e.g., \"ssh:\").",
+            "example": "ssh:"
+          },
+          "flags": {
+            "type": "integer",
+            "format": "int32",
+            "description": "SSH SK flags bitmask (default 0x01 = user presence required).",
+            "default": 1,
+            "example": 1
+          },
+          "iosKeyId": {
+            "type": "string",
+            "description": "iOS key identifier for key selection.",
+            "example": "key_abc123"
+          }
+        },
+        "description": "SSH authentication request payload."
+      },
+      "SshSignPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "rawData"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "ssh_sign"
+            ],
+            "example": "ssh_sign"
+          },
+          "rawData": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded raw data to sign (preimage). The approver constructs the SSH signature input from this preimage.",
+            "example": "ZGF0YSB0byBzaWdu"
+          },
+          "keyId": {
+            "type": "string",
+            "description": "Key ID to use for signing.",
+            "example": "key_abc123"
+          },
+          "application": {
+            "type": "string",
+            "description": "SSH application identifier (e.g., \"ssh:\").",
+            "example": "ssh:"
+          },
+          "flags": {
+            "type": "integer",
+            "format": "int32",
+            "description": "SSH SK flags bitmask (default 0x01 = user presence required).",
+            "default": 1,
+            "example": 1
+          },
+          "iosKeyId": {
+            "type": "string",
+            "description": "iOS key identifier for key selection.",
+            "example": "key_abc123"
+          }
+        },
+        "description": "SSH signing request payload."
+      },
+      "GpgSignPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "rawData"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "gpg_sign"
+            ],
+            "description": "Request type identifier.",
+            "example": "gpg_sign"
+          },
+          "rawData": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded raw data to sign (preimage). The approver builds the OpenPGP hash input from this preimage and signs the resulting digest.",
+            "example": "cmF3IGRhdGE="
+          }
+        },
+        "description": "GPG signing request payload."
+      },
+      "GpgSignatureResponse": {
+        "type": "object",
+        "properties": {
+          "armoredSignature": {
+            "type": "string",
+            "description": "ASCII-armored OpenPGP signature.",
+            "example": "-----BEGIN PGP SIGNATURE-----..."
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if signing failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User rejected the request"
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestation"
+              }
+            ],
+            "description": "Anonymous attestation proving the response came from a genuine device. Present for all approval responses. Inside the encrypted blob."
+          }
+        },
+        "description": "GPG signature response with armored signature."
+      },
+      "GpgDecryptPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "encryptedData"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "gpg_decrypt"
+            ],
+            "example": "gpg_decrypt"
+          },
+          "encryptedData": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded encrypted data to decrypt.",
+            "example": "ZW5jcnlwdGVkIGRhdGE="
+          },
+          "pkesk": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PkeskData"
+              }
+            ],
+            "description": "Public Key Encrypted Session Key data for decryption."
+          }
+        },
+        "description": "GPG decryption request payload."
+      },
+      "GpgDecryptResponse": {
+        "type": "object",
+        "properties": {
+          "sessionKey": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded unwrapped session key.",
+            "example": "c2Vzc2lvbiBrZXk="
+          },
+          "algorithm": {
+            "type": "integer",
+            "format": "int32",
+            "description": "OpenPGP symmetric algorithm ID.",
+            "example": 9
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if decryption failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User rejected the request"
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestation"
+              }
+            ],
+            "description": "Anonymous attestation proving the response came from a genuine device. Present for all approval responses. Inside the encrypted blob."
+          }
+        },
+        "description": "GPG decryption response with session key."
+      },
+      "PkeskData": {
+        "type": "object",
+        "required": [
+          "version",
+          "keyId",
+          "algorithm",
+          "ephemeralPoint",
+          "wrappedKey"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "PKESK packet version (typically 3).",
+            "example": 3
+          },
+          "keyId": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded 8-byte recipient key ID.",
+            "example": "a2V5X2lkMTIz"
+          },
+          "algorithm": {
+            "type": "integer",
+            "format": "int32",
+            "description": "OpenPGP public key algorithm (18 = ECDH).",
+            "example": 18
+          },
+          "ephemeralPoint": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded ephemeral ECDH public point (33 bytes compressed).",
+            "example": "ZXBoZW1lcmFsX3BvaW50"
+          },
+          "wrappedKey": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded AES-wrapped session key.",
+            "example": "d3JhcHBlZF9rZXk="
+          }
+        },
+        "description": "Public Key Encrypted Session Key data from OpenPGP PKESK packet."
+      },
+      "AgeUnwrapPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "ephemeralPublicHex",
+          "wrappedFileKey",
+          "recipientPublicHex"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "age_unwrap"
+            ],
+            "example": "age_unwrap"
+          },
+          "ephemeralPublicHex": {
+            "type": "string",
+            "description": "Lowercase hex-encoded sender's ephemeral X25519 public key (64 hex chars for 32-byte key).",
+            "example": "a1b2c3d4e5f6..."
+          },
+          "wrappedFileKey": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded wrapped file key for decryption.",
+            "example": "d3JhcHBlZCBmaWxlIGtleQ=="
+          },
+          "recipientPublicHex": {
+            "type": "string",
+            "description": "Lowercase hex-encoded recipient's X25519 public key (64 hex chars for 32-byte key).",
+            "example": "b2c3d4e5f6a1..."
+          }
+        },
+        "description": "Request to unwrap an age-encrypted file key."
+      },
+      "AgeUnwrapResponse": {
+        "type": "object",
+        "properties": {
+          "fileKey": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded unwrapped file key for decryption.",
+            "example": "ZmlsZSBrZXk="
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if the operation failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User rejected the request"
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestation"
+              }
+            ],
+            "description": "Anonymous attestation proving the response came from a genuine device. Present for all approval responses. Inside the encrypted blob."
+          }
+        },
+        "description": "Response containing the unwrapped file key or error."
+      },
+      "EcdhDerivePayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "peerPublicHex"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "ecdh_derive"
+            ],
+            "example": "ecdh_derive"
+          },
+          "peerPublicHex": {
+            "type": "string",
+            "description": "Lowercase hex-encoded peer's public key for ECDH (66 hex chars for P-256 33-byte compressed key).",
+            "example": "02a1b2c3d4e5f6..."
+          },
+          "kdf": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EcdhKdfParams"
+              }
+            ],
+            "description": "Optional KDF parameters for key derivation."
+          }
+        },
+        "description": "ECDH key derivation request payload."
+      },
+      "EcdhDeriveResponse": {
+        "type": "object",
+        "properties": {
+          "sharedSecret": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded derived shared secret.",
+            "example": "c2hhcmVkIHNlY3JldA=="
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if the operation failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User rejected the request"
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestation"
+              }
+            ],
+            "description": "Anonymous attestation proving the response came from a genuine device. Present for all approval responses. Inside the encrypted blob."
+          }
+        },
+        "description": "ECDH key derivation response."
+      },
+      "EcdhKdfParams": {
+        "type": "object",
+        "properties": {
+          "algorithm": {
+            "type": "string",
+            "description": "KDF algorithm name.",
+            "example": "HKDF-SHA256"
+          },
+          "keyLength": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Desired output key length in bytes.",
+            "example": 32
+          },
+          "info": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded KDF info parameter.",
+            "example": "aW5mbw=="
+          }
+        },
+        "description": "Parameters for ECDH key derivation function."
+      },
+      "ClaudeApprovalPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "toolName",
+          "toolInputFormatted"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "claude_approval"
+            ],
+            "example": "claude_approval"
+          },
+          "toolName": {
+            "type": "string",
+            "description": "Name of the Claude Code tool (e.g., 'Bash', 'Write', 'Edit').",
+            "example": "Bash"
+          },
+          "toolInputFormatted": {
+            "type": "string",
+            "description": "Formatted tool input for display to the user.",
+            "example": "rm -rf /tmp/test"
+          },
+          "allowsModification": {
+            "type": "boolean",
+            "description": "Whether the user can modify the input before approval.",
+            "example": true
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Claude Code session identifier.",
+            "example": "session_abc123"
+          },
+          "contextPreimage": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded canonical JSON of the approval context (session_id, tool_name, tool_input, timestamp). The approver computes SHA-256 of this preimage and signs the resulting digest.",
+            "example": "eyJzZXNzaW9uX2lkIjoic2Vzc2lvbl9hYmMxMjMifQ=="
+          },
+          "actionTitle": {
+            "type": "string",
+            "description": "Title for the approval prompt.",
+            "example": "Allow command?"
+          },
+          "actionDescription": {
+            "type": "string",
+            "description": "Description of what the action will do.",
+            "example": "Execute shell command in your terminal"
+          }
+        },
+        "description": "Claude Code tool approval request payload."
+      },
+      "ClaudeApprovalResponse": {
+        "type": "object",
+        "required": [
+          "decision",
+          "contextSignature"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "allow_always",
+              "deny"
+            ],
+            "description": "User's approval decision.",
+            "example": "allow"
+          },
+          "contextSignature": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded ECDSA signature over the SHA-256 digest of contextPreimage.",
+            "example": "Y29udGV4dCBzaWduYXR1cmU="
+          },
+          "updatedInput": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Modified input if the user edited it before approval."
+          },
+          "rememberRule": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RememberRule"
+              }
+            ],
+            "description": "Rule to remember for allow_always decisions."
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if the operation failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User rejected the request"
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestation"
+              }
+            ],
+            "description": "Anonymous attestation proving the response came from a genuine device. Present for all approval responses. Inside the encrypted blob."
+          }
+        },
+        "description": "Claude Code approval response with decision and signature."
+      },
+      "ClaudeQuestion": {
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "options"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this question.",
+            "example": "q_abc123"
+          },
+          "question": {
+            "type": "string",
+            "description": "Question text to display to the user.",
+            "example": "Which database should I use?"
+          },
+          "header": {
+            "type": "string",
+            "description": "Header label for the question.",
+            "example": "Database Choice"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaudeQuestionOption"
+            },
+            "description": "Available answer options."
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether an answer is required.",
+            "example": true
+          },
+          "multiSelect": {
+            "type": "boolean",
+            "description": "Whether multiple options can be selected.",
+            "example": false
+          }
+        },
+        "description": "A question for the user to answer via the mobile app."
+      },
+      "ClaudeQuestionOption": {
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this option.",
+            "example": "opt_postgres"
+          },
+          "label": {
+            "type": "string",
+            "description": "Display label for the option.",
+            "example": "PostgreSQL"
+          },
+          "description": {
+            "type": "string",
+            "description": "Additional description for the option.",
+            "example": "Recommended for production workloads"
+          }
+        },
+        "description": "A selectable option for a Claude question."
+      },
+      "ClaudeQuestionPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "questions"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "claude_question"
+            ],
+            "example": "claude_question"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaudeQuestion"
+            },
+            "description": "Array of questions to ask the user."
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Claude Code session identifier.",
+            "example": "session_abc123"
+          }
+        },
+        "description": "Claude Code question request payload."
+      },
+      "ClaudeQuestionResponse": {
+        "type": "object",
+        "properties": {
+          "answersBytes": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded JSON of the user's answers.",
+            "example": "eyJxX2FiYzEyMyI6Im9wdF9wb3N0Z3JlcyJ9"
+          },
+          "answersSignature": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded ECDSA signature over the SHA-256 digest of answersBytes. The approver computes the digest from the canonical JSON answers before signing.",
+            "example": "YW5zd2VycyBzaWduYXR1cmU="
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if the operation failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User rejected the request"
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestation"
+              }
+            ],
+            "description": "Anonymous attestation proving the response came from a genuine device. Present for all approval responses. Inside the encrypted blob."
+          }
+        },
+        "description": "Claude Code question response with signed answers."
+      },
+      "RememberRule": {
+        "type": "object",
+        "required": [
+          "tool"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string",
+            "description": "Tool name to remember.",
+            "example": "Bash"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Pattern to match for auto-approval.",
+            "example": "npm test"
+          }
+        },
+        "description": "Rule for remembering allow_always decisions."
+      },
+      "EnrollPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "purpose"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "enroll"
+            ],
+            "example": "enroll"
+          },
+          "purpose": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.KeyPurpose"
+              }
+            ],
+            "description": "Purpose of the key (ssh, gpg, age)."
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable label for the key.",
+            "example": "Work Laptop SSH Key"
+          },
+          "algorithm": {
+            "type": "string",
+            "description": "Key algorithm to use.",
+            "example": "ed25519"
+          },
+          "includeCertification": {
+            "type": "boolean",
+            "description": "Include self-certification signature for GPG export.",
+            "example": true
+          }
+        },
+        "description": "Key enrollment request payload."
+      },
+      "EnrollResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "description": "Enrollment result.",
+            "example": "approved"
+          },
+          "id": {
+            "type": "string",
+            "description": "Key UUID (for GPG keys).",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "publicKeyHex": {
+            "type": "string",
+            "description": "Lowercase hex-encoded public key (66 hex chars for P-256 33-byte key, or 64 hex chars for Ed25519 32-byte key).",
+            "example": "02a1b2c3d4e5f6..."
+          },
+          "iosKeyId": {
+            "type": "string",
+            "description": "iOS Secure Enclave key identifier.",
+            "example": "key_abc123"
+          },
+          "algorithm": {
+            "type": "string",
+            "description": "Key algorithm used.",
+            "example": "ed25519"
+          },
+          "fingerprint": {
+            "type": "string",
+            "description": "GPG fingerprint for GPG keys.",
+            "example": "ABCD1234EFGH5678"
+          },
+          "keyCreationTimestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp when the key was created.",
+            "example": 1705320000
+          },
+          "userIdSignature": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded self-certification signature.",
+            "example": "dXNlciBpZCBzaWc="
+          },
+          "subkeySignature": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded subkey binding signature.",
+            "example": "c3Via2V5IHNpZw=="
+          },
+          "encryptionPublicKeyHex": {
+            "type": "string",
+            "description": "Lowercase hex-encoded ECDH encryption subkey public key (66 hex chars for P-256 33-byte compressed key)."
+          },
+          "encryptionFingerprint": {
+            "type": "string",
+            "description": "40-character hex fingerprint of the ECDH encryption subkey."
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.KeyMetadataAttestation"
+              }
+            ],
+            "description": "Attestation proof that the key was created on attested device hardware."
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if enrollment failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User rejected the enrollment"
+          }
+        },
+        "description": "Key enrollment response with public key or error."
+      },
+      "PamAuthPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "localUsername",
+          "ackagentUser",
+          "pamService",
+          "timestamp"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "pam_auth"
+            ],
+            "example": "pam_auth"
+          },
+          "localUsername": {
+            "type": "string",
+            "description": "Local Unix username being authenticated.",
+            "example": "admin"
+          },
+          "ackagentUser": {
+            "type": "string",
+            "description": "AckAgent user email for verification.",
+            "example": "user@example.com"
+          },
+          "pamService": {
+            "type": "string",
+            "description": "PAM service name (e.g., sudo, sshd).",
+            "example": "sudo"
+          },
+          "remoteHost": {
+            "type": "string",
+            "description": "Remote host IP for SSH sessions.",
+            "example": "192.168.1.100"
+          },
+          "tty": {
+            "type": "string",
+            "description": "TTY device.",
+            "example": "/dev/pts/0"
+          },
+          "osVersion": {
+            "type": "string",
+            "description": "OS version of the host.",
+            "example": "Ubuntu 22.04"
+          },
+          "sshClient": {
+            "type": "string",
+            "description": "SSH client info from environment.",
+            "example": "192.168.1.50 54321 22"
+          },
+          "sshConnection": {
+            "type": "string",
+            "description": "SSH connection info from environment.",
+            "example": "192.168.1.50 54321 192.168.1.100 22"
+          },
+          "sshOriginalCommand": {
+            "type": "string",
+            "description": "SSH original command if any.",
+            "example": "git-upload-pack '/repo.git'"
+          },
+          "sshAuthSockPresent": {
+            "type": "boolean",
+            "description": "Whether SSH_AUTH_SOCK is present.",
+            "example": true
+          },
+          "sudoUser": {
+            "type": "string",
+            "description": "User who invoked sudo.",
+            "example": "developer"
+          },
+          "sudoCommand": {
+            "type": "string",
+            "description": "Command being run via sudo.",
+            "example": "/usr/bin/apt update"
+          },
+          "challenge": {
+            "type": "string",
+            "description": "Challenge code for offline verification.",
+            "example": "ABC123"
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp of the request.",
+            "example": 1705320000
+          }
+        },
+        "description": "PAM authentication request payload."
+      },
+      "PamAuthResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "description": "Approval decision.",
+            "example": "approved"
+          },
+          "responseCode": {
+            "type": "string",
+            "description": "Response code for offline verification.",
+            "example": "XYZ789"
+          },
+          "signature": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded device signature.",
+            "example": "c2lnbmF0dXJl"
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp of the response.",
+            "example": 1705320001
+          },
+          "authPublicKeyHex": {
+            "type": "string",
+            "description": "Lowercase hex-encoded auth public key of the responding device (66 hex chars for P-256 33-byte key, or 64 hex chars for Ed25519 32-byte key).",
+            "example": "a1b2c3d4e5f6..."
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if authentication failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User rejected the request"
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestation"
+              }
+            ],
+            "description": "Anonymous attestation proving the response came from a genuine device. Present for all approval responses. Inside the encrypted blob."
+          }
+        },
+        "description": "PAM authentication response."
+      },
+      "WebPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "plaintext",
+          "browserMetadata"
+        ],
+        "properties": {
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Display metadata for the approval UI."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "web"
+            ],
+            "example": "web"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title for the approval request.",
+            "example": "Confirm Payment"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of what is being approved.",
+            "example": "Authorize payment of $100 to Example Inc."
+          },
+          "plaintext": {
+            "type": "string",
+            "description": "Plaintext content to approve.",
+            "example": "Payment authorization for $100"
+          },
+          "browserMetadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BrowserMetadata"
+              }
+            ],
+            "description": "Browser metadata from the web request."
+          }
+        },
+        "description": "Web approval request payload."
+      },
+      "WebApprovalResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded ECDSA signature over the SHA-256 digest of the plaintext preimage.",
+            "example": "c2lnbmF0dXJl"
+          },
+          "plaintextHash": {
+            "type": "string",
+            "description": "SHA-256 digest of the plaintext preimage, computed by the approver (format: 'sha256:<hex>').",
+            "example": "sha256:abc123..."
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if approval failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User rejected the request"
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestation"
+              }
+            ],
+            "description": "Anonymous attestation proving the response came from a genuine device. Present for all approval responses. Inside the encrypted blob."
+          }
+        },
+        "description": "Web approval response with signature."
+      },
+      "BrowserMetadata": {
+        "type": "object",
+        "required": [
+          "url",
+          "origin",
+          "timestamp"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Full URL of the page initiating the request.",
+            "example": "https://app.example.com/sign"
+          },
+          "origin": {
+            "type": "string",
+            "description": "Origin of the page (protocol + host).",
+            "example": "https://app.example.com"
+          },
+          "pageTitle": {
+            "type": "string",
+            "description": "Title of the web page.",
+            "example": "Sign Document - Example App"
+          },
+          "userAgent": {
+            "type": "string",
+            "description": "Browser user agent string.",
+            "example": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+          },
+          "referrer": {
+            "type": "string",
+            "description": "Referrer URL if available.",
+            "example": "https://app.example.com/documents"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "ISO 8601 timestamp when metadata was collected.",
+            "example": "2024-01-15T12:00:00Z"
+          }
+        },
+        "description": "Browser metadata captured for web approval requests."
+      },
+      "CaptchaPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "domain",
+          "nonce",
+          "timestamp"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "captcha"
+            ],
+            "example": "captcha"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain requesting captcha verification.",
+            "example": "example.com"
+          },
+          "nonce": {
+            "type": "string",
+            "description": "Unique nonce for replay protection.",
+            "example": "abc123def456"
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp of request creation (milliseconds).",
+            "example": 1705320000000
+          }
+        },
+        "description": "Captcha verification request payload."
+      },
+      "CaptchaResponse": {
+        "type": "object",
+        "required": [
+          "approved"
+        ],
+        "properties": {
+          "approved": {
+            "type": "boolean",
+            "description": "Whether the user approved the captcha.",
+            "example": true
+          },
+          "plaintextHash": {
+            "type": "string",
+            "description": "SHA-256 digest of the plaintext preimage, computed by the approver (format: 'sha256:<hex>').",
+            "example": "sha256:abc123..."
+          },
+          "errorCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.SigningErrorCode"
+              }
+            ],
+            "description": "Error code if verification failed."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "User declined the request"
+          },
+          "attestation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestation"
+              }
+            ],
+            "description": "Anonymous attestation proving the response came from a genuine device with a valid credential. Present for all approval responses. Inside the encrypted blob so the relay stays blind."
+          }
+        },
+        "description": "Captcha verification response."
+      },
+      "CustomPayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "rawData",
+          "display"
+        ],
+        "properties": {
+          "sourceInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceInfo"
+              }
+            ],
+            "description": "Source system and process ancestry information."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "custom"
+            ],
+            "example": "custom"
+          },
+          "rawData": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded raw data to sign (preimage). The approver computes the SHA-256 digest and signs it.",
+            "example": "Y3VzdG9tIGRhdGE="
+          },
+          "display": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GenericDisplaySchema"
+              }
+            ],
+            "description": "Required display schema for custom payloads."
+          }
+        },
+        "description": "Custom signing request with application-defined data."
+      },
+      "TransactionMetadata": {
+        "type": "object",
+        "properties": {
+          "hostname": {
+            "type": "string",
+            "description": "SSH target hostname.",
+            "example": "server.example.com"
+          },
+          "username": {
+            "type": "string",
+            "description": "SSH username.",
+            "example": "admin"
+          },
+          "port": {
+            "type": "integer",
+            "format": "int32",
+            "description": "SSH port.",
+            "example": 22
+          },
+          "command": {
+            "type": "string",
+            "description": "SSH command being executed.",
+            "example": "ls -la"
+          },
+          "processChain": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProcessEntry"
+            },
+            "description": "Process chain for SSH operations."
+          },
+          "sourceHostname": {
+            "type": "string",
+            "description": "Source machine hostname.",
+            "example": "laptop.local"
+          },
+          "localIp": {
+            "type": "string",
+            "description": "Local IP address.",
+            "example": "192.168.1.50"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "File name for GPG operations.",
+            "example": "document.pdf"
+          },
+          "commitMessage": {
+            "type": "string",
+            "description": "Git commit message.",
+            "example": "feat: add new feature"
+          },
+          "recipientEmail": {
+            "type": "string",
+            "description": "Recipient email for encryption.",
+            "example": "recipient@example.com"
+          },
+          "isGitCommit": {
+            "type": "boolean",
+            "description": "Whether this is a git commit signing.",
+            "example": true
+          },
+          "treeHash": {
+            "type": "string",
+            "description": "Git tree hash.",
+            "example": "abc123def456"
+          },
+          "parentHashes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Git parent commit hashes.",
+            "example": [
+              "parent123"
+            ]
+          },
+          "authorName": {
+            "type": "string",
+            "description": "Git author name.",
+            "example": "John Doe"
+          },
+          "authorEmail": {
+            "type": "string",
+            "description": "Git author email.",
+            "example": "john@example.com"
+          },
+          "authorTimestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Git author timestamp.",
+            "example": 1705320000
+          },
+          "committerName": {
+            "type": "string",
+            "description": "Git committer name.",
+            "example": "John Doe"
+          },
+          "committerEmail": {
+            "type": "string",
+            "description": "Git committer email.",
+            "example": "john@example.com"
+          },
+          "committerTimestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Git committer timestamp.",
+            "example": 1705320000
+          },
+          "branch": {
+            "type": "string",
+            "description": "Git branch name.",
+            "example": "main"
+          },
+          "repoName": {
+            "type": "string",
+            "description": "Repository name.",
+            "example": "user/repo"
+          },
+          "commandLine": {
+            "type": "string",
+            "description": "Full command line.",
+            "example": "git commit -S -m \"message\""
+          },
+          "operationType": {
+            "type": "string",
+            "description": "Type of operation.",
+            "example": "sign"
+          },
+          "inputSource": {
+            "type": "string",
+            "description": "Input source description.",
+            "example": "file"
+          },
+          "isStdin": {
+            "type": "boolean",
+            "description": "Whether input is from stdin.",
+            "example": false
+          },
+          "contentSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Content size in bytes.",
+            "example": 1024
+          },
+          "contentHash": {
+            "type": "string",
+            "description": "Hash of the content.",
+            "example": "sha256:abc123..."
+          },
+          "contentPreview": {
+            "type": "string",
+            "description": "Preview of the content.",
+            "example": "First 100 characters..."
+          },
+          "contentFull": {
+            "type": "string",
+            "description": "Full content if small enough.",
+            "example": "Full content here"
+          },
+          "senderKeyId": {
+            "type": "string",
+            "description": "Sender key ID for encryption.",
+            "example": "ABCD1234"
+          },
+          "encryptedTo": {
+            "type": "string",
+            "description": "Recipient key ID.",
+            "example": "EFGH5678"
+          },
+          "messageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Encrypted message size.",
+            "example": 2048
+          },
+          "isAnonymous": {
+            "type": "boolean",
+            "description": "Whether recipient is anonymous.",
+            "example": false
+          },
+          "ageFileName": {
+            "type": "string",
+            "description": "Age file name.",
+            "example": "secrets.age"
+          },
+          "ageFileSize": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Age file size.",
+            "example": 4096
+          },
+          "ageEphemeralPublicHex": {
+            "type": "string",
+            "description": "Lowercase hex-encoded age ephemeral X25519 public key (64 hex chars for 32-byte key).",
+            "example": "a1b2c3d4e5f6..."
+          },
+          "ageWrappedFileKey": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded age wrapped file key.",
+            "example": "YWdlIHdyYXBwZWQ="
+          },
+          "ageRecipientPublicHex": {
+            "type": "string",
+            "description": "Lowercase hex-encoded age recipient X25519 public key (64 hex chars for 32-byte key).",
+            "example": "b2c3d4e5f6a1..."
+          },
+          "actionTitle": {
+            "type": "string",
+            "description": "Action title for display.",
+            "example": "Sign Document"
+          },
+          "actionDescription": {
+            "type": "string",
+            "description": "Action description.",
+            "example": "Sign this PDF document"
+          },
+          "plaintext": {
+            "type": "string",
+            "description": "Plaintext content.",
+            "example": "Content to approve"
+          },
+          "plaintextHash": {
+            "type": "string",
+            "description": "Hash of the plaintext.",
+            "example": "sha256:xyz789..."
+          },
+          "contentType": {
+            "type": "string",
+            "description": "Content MIME type.",
+            "example": "text/plain"
+          },
+          "toolName": {
+            "type": "string",
+            "description": "Claude tool name.",
+            "example": "Bash"
+          },
+          "toolInputFormatted": {
+            "type": "string",
+            "description": "Formatted tool input.",
+            "example": "npm test"
+          },
+          "contextPreimage": {
+            "type": "string",
+            "description": "Base64-encoded canonical JSON of the approval context preimage.",
+            "example": "eyJzZXNzaW9uX2lkIjoic2Vzc2lvbl9hYmMxMjMifQ=="
+          },
+          "allowsModification": {
+            "type": "boolean",
+            "description": "Whether modification is allowed.",
+            "example": true
+          },
+          "claudeSessionId": {
+            "type": "string",
+            "description": "Claude session ID.",
+            "example": "session_123"
+          },
+          "sasWords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "SAS verification words.",
+            "example": [
+              "alpha",
+              "bravo"
+            ]
+          },
+          "sasEmojis": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "SAS verification emojis.",
+            "example": [
+              "🔒",
+              "✅"
+            ]
+          },
+          "loginSessionId": {
+            "type": "string",
+            "description": "Login session ID.",
+            "example": "login_abc123"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "Enrollment purpose.",
+            "example": "ssh"
+          },
+          "algorithm": {
+            "type": "string",
+            "description": "Enrollment algorithm.",
+            "example": "ed25519"
+          },
+          "label": {
+            "type": "string",
+            "description": "Key label.",
+            "example": "Work Laptop"
+          },
+          "additionalInfo": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Additional key-value metadata.",
+            "example": {
+              "custom_field": "custom_value"
+            }
+          }
+        },
+        "description": "Metadata extracted from encrypted payloads for display."
+      },
+      "RequestPayload": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/GpgSignPayload"
+          },
+          {
+            "$ref": "#/components/schemas/SshAuthPayload"
+          },
+          {
+            "$ref": "#/components/schemas/SshSignPayload"
+          },
+          {
+            "$ref": "#/components/schemas/GpgDecryptPayload"
+          },
+          {
+            "$ref": "#/components/schemas/AgeUnwrapPayload"
+          },
+          {
+            "$ref": "#/components/schemas/EcdhDerivePayload"
+          },
+          {
+            "$ref": "#/components/schemas/ClaudeApprovalPayload"
+          },
+          {
+            "$ref": "#/components/schemas/ClaudeQuestionPayload"
+          },
+          {
+            "$ref": "#/components/schemas/EnrollPayload"
+          },
+          {
+            "$ref": "#/components/schemas/CustomPayload"
+          },
+          {
+            "$ref": "#/components/schemas/WebPayload"
+          },
+          {
+            "$ref": "#/components/schemas/PamAuthPayload"
+          },
+          {
+            "$ref": "#/components/schemas/CaptchaPayload"
+          }
+        ],
+        "description": "Any valid request payload type."
+      },
+      "ResponsePayload": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SignatureResponse"
+          },
+          {
+            "$ref": "#/components/schemas/GpgSignatureResponse"
+          },
+          {
+            "$ref": "#/components/schemas/GpgDecryptResponse"
+          },
+          {
+            "$ref": "#/components/schemas/AgeUnwrapResponse"
+          },
+          {
+            "$ref": "#/components/schemas/EcdhDeriveResponse"
+          },
+          {
+            "$ref": "#/components/schemas/ClaudeApprovalResponse"
+          },
+          {
+            "$ref": "#/components/schemas/ClaudeQuestionResponse"
+          },
+          {
+            "$ref": "#/components/schemas/EnrollResponse"
+          },
+          {
+            "$ref": "#/components/schemas/WebApprovalResponse"
+          },
+          {
+            "$ref": "#/components/schemas/PamAuthResponse"
+          },
+          {
+            "$ref": "#/components/schemas/CaptchaResponse"
+          }
+        ],
+        "description": "Any valid response payload type."
+      },
+      "AckAgent.Common.DataIntegrityProof": {
+        "type": "object",
+        "required": [
+          "type",
+          "cryptosuite",
+          "proofValue"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "DataIntegrityProof"
+            ],
+            "description": "Data Integrity proof type."
+          },
+          "cryptosuite": {
+            "type": "string",
+            "enum": [
+              "bbs-2023"
+            ],
+            "description": "Data Integrity cryptosuite identifier."
+          },
+          "proofValue": {
+            "type": "string",
+            "description": "Serialized BBS+ proof value. Canonical format is multibase base64url (prefix `u`), with URL-safe/base64 compatibility accepted during migration."
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Optional proof creation timestamp."
+          },
+          "verificationMethod": {
+            "type": "string",
+            "description": "Optional proof verification method identifier."
+          },
+          "proofPurpose": {
+            "type": "string",
+            "description": "Optional proof purpose."
+          }
+        },
+        "description": "W3C Data Integrity proof object for bbs-2023 presentations."
+      },
+      "AckAgent.Common.AnonymousAttestationRevealedMessages": {
+        "type": "object",
+        "required": [
+          "attestationType",
+          "deviceType",
+          "expiresAt"
+        ],
+        "properties": {
+          "attestationType": {
+            "$ref": "#/components/schemas/AckAgent.Common.AttestationSecurityType"
+          },
+          "deviceType": {
+            "$ref": "#/components/schemas/AckAgent.Common.ApproverDeviceType"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Credential expiry as Unix epoch seconds."
+          }
+        },
+        "description": "Messages disclosed by the BBS+ selective disclosure proof. These are the only credential attributes visible to the verifier."
+      },
+      "AckAgent.Common.AnonymousAttestationScopedLinking": {
+        "type": "object",
+        "required": [
+          "mode",
+          "scopeType",
+          "scopeId",
+          "linkHandle"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "pairwise_account_secret"
+            ],
+            "description": "Scoped-linking mechanism identifier."
+          },
+          "scopeType": {
+            "type": "string",
+            "enum": [
+              "request",
+              "relying_party",
+              "organization"
+            ],
+            "description": "Linkability boundary taxonomy."
+          },
+          "scopeId": {
+            "type": "string",
+            "description": "Scope identifier (for example relying-party ID or organization ID)."
+          },
+          "linkHandle": {
+            "type": "string",
+            "description": "Opaque URL-safe pairwise linking handle."
+          }
+        },
+        "description": "Optional scoped-linking metadata for cross-device experiments."
+      },
+      "AckAgent.Common.AnonymousAttestationPayload": {
+        "type": "object",
+        "required": [
+          "pseudonym",
+          "scope",
+          "presentationHeader",
+          "revealedMessages",
+          "issuerPublicKeyId"
+        ],
+        "properties": {
+          "pseudonym": {
+            "type": "string",
+            "format": "byte",
+            "description": "Scope-bound pseudonym (48 bytes compressed G1 point, base64). Deterministically derived from the holder's nym secret and the scope. Same secret + same scope = same pseudonym (enables replay detection). Different scopes produce unrelated pseudonyms (prevents cross-request correlation)."
+          },
+          "scope": {
+            "type": "string",
+            "description": "Scope used for pseudonym derivation (request ID). Per-request pseudonyms provide maximum privacy."
+          },
+          "presentationHeader": {
+            "type": "string",
+            "format": "byte",
+            "description": "Presentation header bound to the proof (base64). Provides freshness binding to the specific request."
+          },
+          "revealedMessages": {
+            "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestationRevealedMessages"
+          },
+          "issuerPublicKeyId": {
+            "type": "string",
+            "description": "Unique identifier of the issuer key that signed the prover's credential. Enables verifiers to look up the correct key for proof verification during key rotation."
+          },
+          "scopedLinking": {
+            "$ref": "#/components/schemas/AckAgent.Common.AnonymousAttestationScopedLinking"
+          }
+        },
+        "description": "AckAgent-specific payload inside the W3C envelope."
+      },
+      "AckAgent.Common.KeyMetadataAttestation": {
+        "type": "object",
+        "required": [
+          "publicKeyHex",
+          "assertion",
+          "attestationType",
+          "challenge",
+          "attestationTimestamp"
+        ],
+        "properties": {
+          "publicKeyHex": {
+            "type": "string",
+            "description": "Lowercase hex-encoded public key being attested (66 hex chars for P-256 33-byte key, or 64 hex chars for Ed25519 32-byte key)."
+          },
+          "assertion": {
+            "type": "string",
+            "format": "byte",
+            "description": "App Attest assertion or software signature (base64)"
+          },
+          "attestationType": {
+            "$ref": "#/components/schemas/AckAgent.Common.AttestationSecurityType"
+          },
+          "attestationObject": {
+            "type": "string",
+            "format": "byte",
+            "description": "Apple CBOR attestation object for hardware attestation (base64)"
+          },
+          "challenge": {
+            "type": "string",
+            "format": "byte",
+            "description": "SHA256(id || publicKey || createdAt || deviceAuthPublicKey)"
+          },
+          "attestationTimestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in milliseconds"
+          },
+          "attestationPublicKeyHex": {
+            "type": "string",
+            "description": "Lowercase hex-encoded attestation key's public key (66 hex chars for P-256 33-byte compressed key)."
+          }
+        },
+        "description": "Attestation proof that a key was created on attested device hardware."
+      }
+    }
+  }
+}

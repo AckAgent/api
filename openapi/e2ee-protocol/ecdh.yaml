@@ -1,0 +1,79 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - ECDH Types
+  version: '1.0'
+  description: ECDH key derivation payload types.
+paths: {}
+components:
+  schemas:
+    EcdhDerivePayload:
+      type: object
+      required:
+        - type
+        - peerPublicHex
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - ecdh_derive
+          example: ecdh_derive
+        peerPublicHex:
+          type: string
+          description: Lowercase hex-encoded peer's public key for ECDH (66 hex chars for P-256 33-byte compressed key).
+          example: "02a1b2c3d4e5f6..."
+        kdf:
+          allOf:
+            - $ref: '#/components/schemas/EcdhKdfParams'
+          description: Optional KDF parameters for key derivation.
+      description: ECDH key derivation request payload.
+
+    EcdhDeriveResponse:
+      type: object
+      properties:
+        sharedSecret:
+          type: string
+          format: byte
+          description: Base64-encoded derived shared secret.
+          example: c2hhcmVkIHNlY3JldA==
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if the operation failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User rejected the request
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+          description: >-
+            Anonymous attestation proving the response came from a genuine device.
+            Present for all approval responses. Inside the encrypted blob.
+      description: ECDH key derivation response.
+
+    EcdhKdfParams:
+      type: object
+      properties:
+        algorithm:
+          type: string
+          description: KDF algorithm name.
+          example: HKDF-SHA256
+        keyLength:
+          type: integer
+          format: int32
+          description: Desired output key length in bytes.
+          example: 32
+        info:
+          type: string
+          format: byte
+          description: Base64-encoded KDF info parameter.
+          example: aW5mbw==
+      description: Parameters for ECDH key derivation function.

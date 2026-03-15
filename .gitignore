@@ -1,0 +1,12 @@
+node_modules/
+
+# TypeScript build output (rebuilt from src/ during publish)
+ts/dist/
+
+# Swift SPM build artifacts
+.build/
+Package.resolved
+
+# Kotlin/Gradle build artifacts (generated source is committed)
+kotlin/build/
+kotlin/.gradle/

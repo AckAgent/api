@@ -1,0 +1,111 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Enrollment Types
+  version: '1.0'
+  description: Key enrollment payload types.
+paths: {}
+components:
+  schemas:
+    EnrollPayload:
+      type: object
+      required:
+        - type
+        - purpose
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - enroll
+          example: enroll
+        purpose:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.KeyPurpose'
+          description: Purpose of the key (ssh, gpg, age).
+        label:
+          type: string
+          description: Human-readable label for the key.
+          example: Work Laptop SSH Key
+        algorithm:
+          type: string
+          description: Key algorithm to use.
+          example: ed25519
+        includeCertification:
+          type: boolean
+          description: Include self-certification signature for GPG export.
+          example: true
+      description: Key enrollment request payload.
+
+    EnrollResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - approved
+            - rejected
+          description: Enrollment result.
+          example: approved
+        id:
+          type: string
+          description: Key UUID (for GPG keys).
+          example: 550e8400-e29b-41d4-a716-446655440000
+        publicKeyHex:
+          type: string
+          description: Lowercase hex-encoded public key (66 hex chars for P-256 33-byte key, or 64 hex chars for Ed25519 32-byte key).
+          example: "02a1b2c3d4e5f6..."
+        iosKeyId:
+          type: string
+          description: iOS Secure Enclave key identifier.
+          example: key_abc123
+        algorithm:
+          type: string
+          description: Key algorithm used.
+          example: ed25519
+        fingerprint:
+          type: string
+          description: GPG fingerprint for GPG keys.
+          example: ABCD1234EFGH5678
+        keyCreationTimestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp when the key was created.
+          example: 1705320000
+        userIdSignature:
+          type: string
+          format: byte
+          description: Base64-encoded self-certification signature.
+          example: dXNlciBpZCBzaWc=
+        subkeySignature:
+          type: string
+          format: byte
+          description: Base64-encoded subkey binding signature.
+          example: c3Via2V5IHNpZw==
+        encryptionPublicKeyHex:
+          type: string
+          description: Lowercase hex-encoded ECDH encryption subkey public key (66 hex chars for P-256 33-byte compressed key).
+        encryptionFingerprint:
+          type: string
+          description: 40-character hex fingerprint of the ECDH encryption subkey.
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.KeyMetadataAttestation'
+          description: Attestation proof that the key was created on attested device hardware.
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if enrollment failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User rejected the enrollment
+      description: Key enrollment response with public key or error.

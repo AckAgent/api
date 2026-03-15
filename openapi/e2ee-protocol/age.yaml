@@ -1,0 +1,67 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Age Types
+  version: '1.0'
+  description: Age encryption unwrap payload types.
+paths: {}
+components:
+  schemas:
+    AgeUnwrapPayload:
+      type: object
+      required:
+        - type
+        - ephemeralPublicHex
+        - wrappedFileKey
+        - recipientPublicHex
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - age_unwrap
+          example: age_unwrap
+        ephemeralPublicHex:
+          type: string
+          description: Lowercase hex-encoded sender's ephemeral X25519 public key (64 hex chars for 32-byte key).
+          example: "a1b2c3d4e5f6..."
+        wrappedFileKey:
+          type: string
+          format: byte
+          description: Base64-encoded wrapped file key for decryption.
+          example: d3JhcHBlZCBmaWxlIGtleQ==
+        recipientPublicHex:
+          type: string
+          description: Lowercase hex-encoded recipient's X25519 public key (64 hex chars for 32-byte key).
+          example: "b2c3d4e5f6a1..."
+      description: Request to unwrap an age-encrypted file key.
+
+    AgeUnwrapResponse:
+      type: object
+      properties:
+        fileKey:
+          type: string
+          format: byte
+          description: Base64-encoded unwrapped file key for decryption.
+          example: ZmlsZSBrZXk=
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if the operation failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User rejected the request
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+          description: >-
+            Anonymous attestation proving the response came from a genuine device.
+            Present for all approval responses. Inside the encrypted blob.
+      description: Response containing the unwrapped file key or error.

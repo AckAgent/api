@@ -1,0 +1,2224 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Identity API (AckAgent Profile)
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://ackagent.com/terms
+  description: >-
+    REST API for user authentication, device management, and session handling.
+
+
+    ## Actor Types
+
+
+    - **Requesters**: Clients that initiate signing requests (CLI, web apps). Limited trust - can only decrypt responses
+    to their own requests.
+
+    - **Approvers**: Mobile devices that approve requests and hold signing keys. High trust - hardware-backed keys, can
+    decrypt ALL requests.
+
+
+    ## Authentication
+
+
+    Most endpoints require OIDC Bearer token authentication. Tokens are issued by the Identity service after successful
+    registration or re-login.
+
+
+    ## Session Flows
+
+
+    - **Requester Sessions**: CLI/web apps create sessions, scan QR codes, and verify SAS to receive tokens
+
+    - **Approver Sessions**: New mobile devices link to existing accounts via QR code and SAS verification
+tags:
+  - name: Health
+    description: Service health checks
+  - name: Auth
+    description: Core authentication endpoints
+  - name: Approvers
+    description: Approver device management
+  - name: Requesters
+    description: Requester registration and management
+  - name: Attestation
+    description: Device attestation verification
+  - name: Requester Sessions
+    description: CLI/web login sessions
+  - name: Approver Sessions
+    description: Device linking sessions
+  - name: Connections
+    description: Connection management
+  - name: User
+    description: User-specific operations
+  - name: Internal
+    description: Service-to-service communication (not publicly accessible)
+paths:
+  /health:
+    get:
+      operationId: Health_check
+      summary: Health check
+      description: Health check
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+      tags:
+        - Health
+      security:
+        - {}
+  /health/ready:
+    get:
+      operationId: HealthReady_check
+      summary: Readiness check
+      description: Readiness check - includes database connectivity check
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service unavailable.
+      tags:
+        - Health
+      security:
+        - {}
+  /api/auth/challenge:
+    get:
+      operationId: AuthChallenge_get
+      summary: Get authentication challenge
+      description: Get authentication challenge - returns a challenge for signing key authentication
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeResponse'
+      tags:
+        - Auth
+      security:
+        - {}
+  /api/auth/cors/origins:
+    get:
+      operationId: AuthCorsOrigins_get
+      summary: Get allowed CORS origins
+      description: Get allowed CORS origins
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CorsOriginsResponse'
+      tags:
+        - Auth
+      security:
+        - {}
+  /api/auth/keys:
+    get:
+      operationId: AuthKeys_list
+      summary: Get user's signing keys
+      description: Get user's signing keys
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetKeysResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Auth
+  /api/auth/keys/{id}:
+    delete:
+      operationId: AuthKeyById_delete
+      summary: Delete a signing key
+      description: Delete a signing key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier for the signing key
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Auth
+  /api/auth/me:
+    get:
+      operationId: AuthMe_get
+      summary: Get current user info
+      description: Get current user info
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetMeResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Auth
+  /api/auth/register:
+    post:
+      operationId: AuthRegister_register
+      summary: Register new user with auth key
+      description: Register new user with auth key
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The request conflicts with the current state of the server.
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      security:
+        - {}
+  /api/auth/relogin:
+    post:
+      operationId: AuthReLogin_relogin
+      summary: Re-login with existing auth key
+      description: Re-login with existing auth key - authenticate using a previously registered P-256 auth key
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReLoginResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReLoginRequest'
+      security:
+        - {}
+  /api/v1/approver-sessions:
+    post:
+      operationId: ApproverSessions_create
+      summary: Create approver session
+      description: Create approver session
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateApproverSessionResponse'
+      tags:
+        - Approver Sessions
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApproverSessionRequest'
+      security:
+        - {}
+  /api/v1/approver-sessions/{id}/claim:
+    post:
+      operationId: ApproverSessionClaim_claim
+      summary: Claim approver session
+      description: Claim approver session - existing device claims an approver session after scanning the QR code
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Approver session identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimApproverSessionResponse'
+        '401':
+          description: Access is unauthorized.
+        '404':
+          description: The server cannot find the requested resource.
+        '410':
+          description: Client error
+      tags:
+        - Approver Sessions
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimApproverSessionRequest'
+  /api/v1/approver-sessions/{id}/reject:
+    post:
+      operationId: ApproverSessionReject_reject
+      summary: Reject SAS
+      description: Reject SAS - existing device rejects the SAS (mismatch or user declined)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Approver session identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Approver Sessions
+  /api/v1/approver-sessions/{id}/status:
+    get:
+      operationId: ApproverSessionStatus_get
+      summary: Poll approver session status
+      description: Poll approver session status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Approver session identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetApproverSessionStatusResponse'
+        '404':
+          description: The server cannot find the requested resource.
+        '410':
+          description: Client error
+      tags:
+        - Approver Sessions
+      security:
+        - {}
+  /api/v1/approver-sessions/{id}/tokens:
+    get:
+      operationId: ApproverSessionTokens_get
+      summary: Get tokens after verification
+      description: Get tokens after verification - new device fetches OAuth tokens after SAS verification is complete
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Approver session identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetApproverSessionTokensResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Approver Sessions
+      security:
+        - {}
+  /api/v1/approver-sessions/{id}/verify:
+    post:
+      operationId: ApproverSessionVerify_verify
+      summary: Verify SAS match
+      description: Verify SAS match - existing device confirms the SAS displayed on new device matches
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Approver session identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyApproverSessionResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Approver Sessions
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyApproverSessionRequest'
+  /api/v1/approvers/link:
+    post:
+      operationId: ApproversLink_link
+      summary: Link approver device to account
+      description: Link approver device to account - links an iOS/Android device to the authenticated user's account
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApproverLinkResponse'
+        '401':
+          description: Access is unauthorized.
+        '503':
+          description: >-
+            Credential service unavailable. The credential-issuer service is down or has no active signing key. Retry
+            after a short delay.
+      tags:
+        - Approvers
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproverLinkRequest'
+  /api/v1/approvers/{approverId}/attestation:
+    get:
+      operationId: ApproverAttestation_get
+      summary: Get approver attestation
+      description: Get approver attestation
+      parameters:
+        - name: approverId
+          in: path
+          required: true
+          description: Approver device UUID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAttestationResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Attestation
+  /api/v1/attest/check:
+    get:
+      operationId: AttestCheck_check
+      summary: Check attestation rate limit
+      description: Check attestation rate limit - check if attestation is allowed for the requester
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttestCheckResponse'
+      tags:
+        - Attestation
+      security:
+        - {}
+  /api/v1/connections:
+    post:
+      operationId: Connections_create
+      summary: Create connection
+      description: Create connection
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateConnectionResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Connections
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConnectionRequest'
+  /api/v1/requester-sessions:
+    post:
+      operationId: RequesterSessions_create
+      summary: Create requester session
+      description: Create requester session
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateRequesterSessionResponse'
+      tags:
+        - Requester Sessions
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequesterSessionRequest'
+      security:
+        - {}
+  /api/v1/requester-sessions/{id}/claim:
+    post:
+      operationId: RequesterSessionClaim_claim
+      summary: Claim requester session
+      description: Claim requester session - iOS device claims a requester session after scanning the QR code
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimRequesterSessionResponse'
+        '401':
+          description: Access is unauthorized.
+        '404':
+          description: The server cannot find the requested resource.
+        '410':
+          description: Client error
+      tags:
+        - Requester Sessions
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimRequesterSessionRequest'
+  /api/v1/requester-sessions/{id}/reject:
+    post:
+      operationId: RequesterSessionReject_reject
+      summary: Reject SAS
+      description: Reject SAS - iOS device rejects the SAS (mismatch or user declined)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Requester Sessions
+  /api/v1/requester-sessions/{id}/status:
+    get:
+      operationId: RequesterSessionStatus_get
+      summary: Poll requester session status
+      description: Poll requester session status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetRequesterSessionStatusResponse'
+        '404':
+          description: The server cannot find the requested resource.
+        '410':
+          description: Client error
+      tags:
+        - Requester Sessions
+      security:
+        - {}
+  /api/v1/requester-sessions/{id}/tokens:
+    get:
+      operationId: RequesterSessionTokens_get
+      summary: Get tokens after verification
+      description: Get tokens after verification - CLI fetches OAuth tokens after SAS verification is complete
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetRequesterSessionTokensResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Requester Sessions
+      security:
+        - {}
+  /api/v1/requester-sessions/{id}/verify:
+    post:
+      operationId: RequesterSessionVerify_verify
+      summary: Verify SAS match
+      description: Verify SAS match - iOS device confirms the SAS displayed on CLI matches
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyRequesterSessionResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Requester Sessions
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRequesterSessionRequest'
+  /api/v1/requesters:
+    post:
+      operationId: Requesters_create
+      summary: Create requester
+      description: Create requester - creates a new requester registration for a user
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequesterResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Requesters
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequesterRequest'
+  /api/v1/requesters/{id}:
+    get:
+      operationId: RequesterById_get
+      summary: Get requester
+      description: Get requester
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequesterResponse'
+        '401':
+          description: Access is unauthorized.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Requesters
+    delete:
+      operationId: RequesterById_delete
+      summary: Delete requester
+      description: Delete requester
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Requesters
+  /api/v1/requesters/{id}/revoke:
+    post:
+      operationId: RequesterRevoke_revoke
+      summary: Revoke requester
+      description: Revoke requester
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Requesters
+  /api/v1/users/{id}/approver-keys:
+    get:
+      operationId: UserApproverKeys_get
+      summary: Get approver signing keys
+      description: Get approver signing keys - returns P-256 public keys for all user's approver devices (for SAS computation)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApproverKeysResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Approvers
+  /api/v1/users/{id}/approver-sessions:
+    get:
+      operationId: UserApproverSessions_list
+      summary: List pending approver sessions
+      description: List pending approver sessions - existing devices poll this to see pending device link sessions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUserApproverSessionsResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Approver Sessions
+  /api/v1/users/{id}/approvers:
+    get:
+      operationId: UserApprovers_list
+      summary: List user's approver devices
+      description: List user's approver devices
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListApproversResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - Approvers
+  /api/v1/users/{id}/approvers/{approverId}:
+    put:
+      operationId: UserApproverById_update
+      summary: Update approver device
+      description: Update approver device - update device info (APNs token, device type, etc.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: approverId
+          in: path
+          required: true
+          description: Approver device UUID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - Approvers
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateApproverRequest'
+    delete:
+      operationId: UserApproverById_remove
+      summary: Remove approver device
+      description: Remove approver device
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: approverId
+          in: path
+          required: true
+          description: Approver device UUID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - Approvers
+  /api/v1/users/{id}/login-history:
+    get:
+      operationId: UserLoginHistory_list
+      summary: List login history
+      description: List recent login attempts for the user, including pending and completed sessions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            format: int32
+            default: 50
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListLoginHistoryResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - User
+  /api/v1/users/{id}/requester-sessions:
+    get:
+      operationId: UserRequesterSessions_list
+      summary: List pending requester sessions
+      description: List pending requester sessions - iOS devices poll this to see pending requester sessions for the user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUserRequesterSessionsResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Requester Sessions
+  /api/v1/users/{id}/requesters:
+    get:
+      operationId: UserRequesters_list
+      summary: List user's requesters
+      description: List user's requesters
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListRequestersResponse'
+        '401':
+          description: Access is unauthorized.
+      tags:
+        - Requesters
+  /api/v1/credentials/enroll:
+    post:
+      operationId: Credentials_enroll
+      summary: Enroll a BBS+ anonymous attestation credential
+      description: |-
+        Enrolls a new BBS+ credential with pseudonym support for a device.
+        The device provides a blind commitment (with ZK proof) over its nym secret.
+        The auth service verifies the device's attestation and binding signature,
+        then requests a blind signature from the credential-issuer service.
+      tags:
+        - Credentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollCredentialRequest'
+      responses:
+        '200':
+          description: Credential enrolled successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollCredentialResponse'
+        '400':
+          description: Invalid request (bad fields, binding signature invalid).
+        '409':
+          description: Active credential already exists for this device.
+        '500':
+          description: Internal server error.
+  /api/v1/credentials/refresh:
+    post:
+      operationId: Credentials_refresh
+      summary: Refresh a BBS+ anonymous attestation credential
+      description: |-
+        Refreshes an expiring credential. The device provides a new blind commitment
+        (with ZK proof). The auth service revokes the old credential and issues a new one.
+      tags:
+        - Credentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshCredentialRequest'
+      responses:
+        '200':
+          description: Credential refreshed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollCredentialResponse'
+        '400':
+          description: Invalid request.
+        '403':
+          description: Device attestation or authorization policy forbids credential refresh.
+        '404':
+          description: No active credential found to refresh.
+        '500':
+          description: Internal server error.
+  /api/v1/credentials/public-key:
+    get:
+      operationId: Credentials_getPublicKey
+      summary: Get issuer public keys
+      description: |-
+        Returns issuer public keys for BBS+ credential verification.
+        Proxies to the credential-issuer service. No authentication required.
+      tags:
+        - Credentials
+      responses:
+        '200':
+          description: Issuer public keys.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IssuerPublicKeyInfo'
+      security:
+        - {}
+security:
+  - BearerAuth: []
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+      description: Health check response
+    CorsOriginsResponse:
+      type: object
+      required:
+        - origins
+      properties:
+        origins:
+          type: array
+          items:
+            type: string
+      description: CORS origins response
+    SessionStatus:
+      type: string
+      enum:
+        - pending
+        - claimed
+        - verified
+        - rejected
+        - expired
+      description: Session status values
+    RequesterStatus:
+      type: string
+      enum:
+        - active
+        - revoked
+      description: Requester status values
+    ApproverInfo:
+      type: object
+      properties:
+        approverId:
+          type: string
+          description: Approver device UUID
+        authPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 auth public key (66 hex chars for P-256, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+        deviceName:
+          type: string
+        deviceType:
+          type: string
+        encryptionPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 ECDH key for E2E encryption (66 hex chars for P-256, 33 bytes: 0x02/0x03 || X
+            (compressed P-256), hardware-backed, no biometric)
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+        attestation:
+          allOf:
+            - $ref: '#/components/schemas/AttestationData'
+          description: Full attestation data for client-side verification
+      description: Approver device info
+    ApproverKeyDetails:
+      type: object
+      properties:
+        approverId:
+          type: string
+          description: Approver device UUID
+        authPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 auth public key (66 hex chars for P-256, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+        encryptionPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 ECDH public key for E2E encryption (66 hex chars for P-256, 33 bytes: 0x02/0x03
+            || X (compressed P-256), no biometric)
+      description: Approver key info for E2E encryption
+    ApproverKeyInfo:
+      type: object
+      properties:
+        approverId:
+          type: string
+          description: Approver device UUID
+        authPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 auth public key (66 hex chars for P-256, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+        attestationPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded attestation key's public key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+        attestationType:
+          $ref: e2ee-protocol-openapi.yaml#/components/schemas/AckAgent.Common.AttestationSecurityType
+        deviceName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      description: Approver attestation key info
+    ApproverKeysResponse:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApproverKeyDetails'
+      description: Approver keys response
+    ApproverLinkRequest:
+      type: object
+      required:
+        - deviceType
+        - encryptionPublicKeyHex
+        - authPublicKeyHex
+      properties:
+        deviceName:
+          type: string
+          description: Device name for display
+        deviceType:
+          $ref: e2ee-protocol-openapi.yaml#/components/schemas/AckAgent.Common.ApproverDeviceType
+        encryptionPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 ECDH public key for E2E encryption (66 hex chars for P-256, 33 bytes: 0x02/0x03
+            || X (compressed P-256), no biometric)
+          example: 0200a3b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2
+        authPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 ECDSA auth public key (66 hex chars for P-256, 33 bytes: 0x02/0x03 || X
+            (compressed P-256), hardware-backed)
+          example: 02b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2
+        apnsToken:
+          type: string
+          description: APNs token for push notifications (iOS)
+        attestationType:
+          $ref: e2ee-protocol-openapi.yaml#/components/schemas/AckAgent.Common.AttestationSecurityType
+        attestationObject:
+          type: string
+          format: byte
+          description: Apple CBOR attestation object (for attestation key)
+        authKeyBindingAssertion:
+          type: string
+          format: byte
+          description: Assertion from attestation key binding auth key
+        authKeyBindingChallenge:
+          type: string
+          format: byte
+          description: Challenge used for auth key binding
+        encryptionKeyBindingAssertion:
+          type: string
+          format: byte
+          description: Assertion from attestation key binding encryption key
+        encryptionKeyBindingChallenge:
+          type: string
+          format: byte
+          description: Challenge used for encryption key binding
+        fcmToken:
+          type: string
+          description: FCM token for push notifications (Android)
+        androidAttestationChain:
+          type: array
+          items:
+            type: string
+            format: byte
+          description: DER-encoded certificate chain (Android Key Attestation)
+        attestationTimestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp in milliseconds when attestation was generated
+        attestationPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded attestation key's public key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+          example: 02a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2
+        playIntegrityToken:
+          type: string
+          description: Google Play Integrity token (Android only, base64-encoded opaque token from IntegrityManager)
+        playIntegrityNonce:
+          type: string
+          format: byte
+          description: Nonce used for Play Integrity token (SHA256(publicKey || challenge), base64)
+      description: Approver device link request
+    ApproverLinkResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: User ID (UUID)
+        approverId:
+          type: string
+          description: Approver device UUID that was registered
+        isNewUser:
+          type: boolean
+          description: Whether this is a new user account
+      description: Approver device link response
+    ApproverSessionInfo:
+      type: object
+      required:
+        - id
+        - deviceName
+        - sessionEncryptionKey
+        - createdAt
+        - expiresAt
+      properties:
+        id:
+          type: string
+          description: Session ID
+        deviceName:
+          type: string
+        sessionEncryptionKey:
+          type: string
+          format: byte
+          description: New device's P-256 ephemeral key for session E2E encryption (33 bytes, base64)
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+      description: Approver session info for list
+    AttestCheckResponse:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        capacity:
+          type: integer
+          description: Current rate limit capacity
+        retryAfterMs:
+          type: integer
+          description: Milliseconds until next attempt is allowed
+        reason:
+          type: string
+      description: Attest check response
+    AttestationData:
+      type: object
+      required:
+        - mode
+        - deviceType
+        - attestationType
+        - timestamp
+      properties:
+        mode:
+          type: string
+          enum:
+            - identified
+          description: >-
+            Attestation mode for device enrollment. Always "identified" for auth service device attestation (includes
+            full device identity).
+        deviceName:
+          type: string
+          description: Human-readable device name for display
+        deviceType:
+          $ref: e2ee-protocol-openapi.yaml#/components/schemas/AckAgent.Common.ApproverDeviceType
+        attestationType:
+          $ref: e2ee-protocol-openapi.yaml#/components/schemas/AckAgent.Common.AttestationSecurityType
+        attestationPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded attestation key's public key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed
+            P-256)). Present in "identified" mode.
+        encryptionPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 ECDH public key for E2E encryption (66 hex chars for P-256, 33 bytes: 0x02/0x03
+            || X (compressed P-256))
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp in milliseconds when attestation was generated
+        certificateChain:
+          type: array
+          items:
+            type: string
+            format: byte
+          description: DER-encoded certificate chain for verification (array of base64 strings). Present in "identified" mode.
+        responseAssertion:
+          type: string
+          format: byte
+          description: Direct attestation of the response by the attestation key. Base64-encoded.
+        playIntegrityVerdict:
+          type: object
+          description: Google Play Integrity verdict (Android only, populated after server-side verification)
+          properties:
+            deviceRecognitionVerdict:
+              type: string
+              description: >-
+                Device integrity level (MEETS_DEVICE_INTEGRITY, MEETS_BASIC_INTEGRITY, MEETS_STRONG_INTEGRITY,
+                MEETS_VIRTUAL_INTEGRITY)
+            appRecognitionVerdict:
+              type: string
+              description: App integrity (PLAY_RECOGNIZED, UNRECOGNIZED_VERSION, UNEVALUATED)
+            accountLicensingVerdict:
+              type: string
+              description: Account licensing (LICENSED, UNLICENSED, UNEVALUATED)
+            verifiedAt:
+              type: string
+              format: date-time
+              description: When the verdict was verified by the backend
+      description: >-
+        Attestation data proving a response came from a genuine device. In "identified" mode, includes full device
+        identity. In "anonymous" mode (future), proves genuine device without revealing identity.
+    ChallengeResponse:
+      type: object
+      required:
+        - challengeId
+        - challenge
+        - expiresIn
+      properties:
+        challengeId:
+          type: string
+          description: Server-generated challenge ID for re-login (UUID)
+        challenge:
+          type: string
+          description: Random challenge bytes (base64)
+        expiresIn:
+          type: integer
+          format: int32
+          description: Seconds until challenge expires
+      description: Challenge response for re-login
+    ClaimApproverSessionRequest:
+      type: object
+      properties:
+        sessionEncryptionKey:
+          type: string
+          format: byte
+          description: New device's P-256 ephemeral key from QR code for SAS verification
+      description: Claim approver session request
+    ClaimApproverSessionResponse:
+      type: object
+      required:
+        - sessionId
+        - deviceName
+        - sessionEncryptionKey
+        - expiresAt
+      properties:
+        sessionId:
+          type: string
+          description: Session ID for tracking
+        deviceName:
+          type: string
+          description: New device's display name
+        sessionEncryptionKey:
+          type: string
+          format: byte
+          description: New device's P-256 ephemeral key for session E2E encryption (33 bytes, base64)
+        authPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 ECDSA auth public key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+        attestationType:
+          $ref: e2ee-protocol-openapi.yaml#/components/schemas/AckAgent.Common.AttestationSecurityType
+        authAttestationObject:
+          type: string
+          format: byte
+          description: Apple CBOR attestation object for auth key
+        keyBindingAssertion:
+          type: string
+          format: byte
+          description: App Attest assertion binding the auth key to the session key
+        expiresAt:
+          type: string
+          format: date-time
+        sourceIp:
+          type: string
+          description: Source IP of the new device for display during SAS verification
+      description: Claim approver session response
+    ClaimRequesterSessionRequest:
+      type: object
+      properties:
+        requesterPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded requester P-256 public key from QR code (66 hex chars, 33 bytes: 0x02/0x03 || X
+            (compressed P-256))
+      description: Claim requester session request
+    ClaimRequesterSessionResponse:
+      type: object
+      required:
+        - sessionId
+        - requesterName
+        - requesterPublicKeyHex
+        - expiresAt
+      properties:
+        sessionId:
+          type: string
+          description: Session ID for tracking
+        requesterName:
+          type: string
+          description: Requester display name
+        requesterPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded requester P-256 ECDH public key for E2E encryption (66 hex chars, 33 bytes: 0x02/0x03
+            || X (compressed P-256))
+        expiresAt:
+          type: string
+          format: date-time
+        sourceIp:
+          type: string
+          description: Source IP of the requester for display during SAS verification
+      description: Claim requester session response
+    CreateApproverSessionRequest:
+      type: object
+      required:
+        - deviceName
+        - sessionEncryptionKey
+      properties:
+        deviceName:
+          type: string
+        sessionEncryptionKey:
+          type: string
+          format: byte
+          description: P-256 ephemeral key for session E2E encryption (33 bytes, base64)
+        authPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 ECDSA auth public key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+        attestationType:
+          $ref: e2ee-protocol-openapi.yaml#/components/schemas/AckAgent.Common.AttestationSecurityType
+        authAttestationObject:
+          type: string
+          format: byte
+          description: Apple CBOR attestation object for auth key
+        keyBindingAssertion:
+          type: string
+          format: byte
+          description: App Attest assertion binding the auth key to the session key (challenge = SHA256(sessionEncryptionKey))
+        expiresIn:
+          type: integer
+          format: int32
+          default: 300
+      description: Create approver session request
+    CreateApproverSessionResponse:
+      type: object
+      required:
+        - sessionId
+        - status
+        - expiresAt
+        - tokenClaimSecret
+      properties:
+        sessionId:
+          type: string
+        status:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        tokenClaimSecret:
+          type: string
+          description: Secret required to fetch tokens - prevents session fixation attacks
+      description: Create approver session response
+    CreateConnectionRequest:
+      type: object
+      required:
+        - requesterId
+        - requesterName
+        - requesterPublicKeyHex
+      properties:
+        requesterId:
+          type: string
+        requesterName:
+          type: string
+        requesterPublicKeyHex:
+          type: string
+          description: 'Lowercase hex-encoded requester P-256 public key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed P-256))'
+        expiresIn:
+          type: integer
+          format: int32
+          default: 300
+      description: Create connection request
+    CreateConnectionResponse:
+      type: object
+      required:
+        - sessionId
+        - status
+        - expiresAt
+        - approvers
+      properties:
+        sessionId:
+          type: string
+          description: Session ID for tracking this connection
+        status:
+          type: string
+          description: Current session status
+        expiresAt:
+          type: string
+          format: date-time
+        approvers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttestationData'
+          description: Full attestation data for all approver devices - requester should verify these
+      description: Create connection response
+    CreateRequesterRequest:
+      type: object
+      required:
+        - requesterId
+        - requesterName
+        - requesterPublicKeyHex
+        - userId
+      properties:
+        requesterId:
+          type: string
+        requesterName:
+          type: string
+        requesterUrl:
+          type: string
+        requesterPublicKeyHex:
+          type: string
+          description: 'Lowercase hex-encoded requester P-256 public key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed P-256))'
+        userId:
+          type: string
+      description: Create requester request
+    CreateRequesterSessionRequest:
+      type: object
+      required:
+        - requesterPublicKeyHex
+      properties:
+        requesterId:
+          type: string
+        requesterName:
+          type: string
+          default: CLI
+        requesterPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded requester P-256 ECDH public key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+        expiresIn:
+          type: integer
+          format: int32
+          default: 300
+      description: Create requester session request
+    CreateRequesterSessionResponse:
+      type: object
+      required:
+        - sessionId
+        - status
+        - expiresAt
+        - tokenClaimSecret
+      properties:
+        sessionId:
+          type: string
+        status:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        tokenClaimSecret:
+          type: string
+          description: Secret required to fetch tokens - prevents session fixation attacks
+      description: Create requester session response
+    GetApproverSessionStatusResponse:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        expiresAt:
+          type: string
+          format: date-time
+        userId:
+          type: string
+        approverKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApproverKeyDetails'
+          description: Existing approver public keys for SAS computation
+      description: Get approver session status response
+    GetApproverSessionTokensResponse:
+      type: object
+      required:
+        - accessToken
+        - expiresIn
+        - tokenType
+        - userId
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          format: int32
+        tokenType:
+          type: string
+        userId:
+          type: string
+        approverKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApproverKeyDetails'
+      description: Get approver session tokens response
+    GetAttestationResponse:
+      type: object
+      properties:
+        attestation:
+          allOf:
+            - $ref: '#/components/schemas/AttestationData'
+          description: Full attestation data for client-side verification
+        attested:
+          type: boolean
+          description: Whether the device has valid attestation
+      description: Get attestation response
+    GetKeysResponse:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApproverKeyInfo'
+      description: Get keys response
+    GetMeResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      description: Get me response
+    GetRequesterSessionStatusResponse:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        expiresAt:
+          type: string
+          format: date-time
+        userId:
+          type: string
+        requesterId:
+          type: string
+        claimingApproverId:
+          type: string
+          description: UUID of the approver handling this session (set when claimed/verified)
+        approverKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApproverKeyDetails'
+          description: Approver public keys for SAS computation
+      description: Get requester session status response
+    GetRequesterSessionTokensResponse:
+      type: object
+      required:
+        - accessToken
+        - expiresIn
+        - tokenType
+        - userId
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          format: int32
+        tokenType:
+          type: string
+        userId:
+          type: string
+        requesterId:
+          type: string
+        approverKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApproverKeyDetails'
+      description: Get requester session tokens response
+    InternalApproverToken:
+      type: object
+      required:
+        - approverId
+        - approverType
+      properties:
+        approverId:
+          type: string
+          description: Approver device UUID
+        approverType:
+          type: string
+        apnsToken:
+          type: string
+        fcmToken:
+          type: string
+      description: Internal approver token information
+    InternalApproverTokensResponse:
+      type: object
+      required:
+        - approvers
+      properties:
+        approvers:
+          type: array
+          items:
+            $ref: '#/components/schemas/InternalApproverToken'
+      description: Internal approver tokens response
+    InternalDeviceToken:
+      type: object
+      properties:
+        approverId:
+          type: string
+          description: Approver device UUID
+        authPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 auth public key (66 hex chars for P-256, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+        deviceType:
+          type: string
+          description: Device type
+        apnsToken:
+          type: string
+          description: APNs device token (hex-encoded)
+        fcmToken:
+          type: string
+          description: FCM registration token
+      description: Internal device token
+    InternalDeviceTokensResponse:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/InternalDeviceToken'
+      description: Internal device tokens response
+    InternalSessionRevokeResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Status message confirming session revocation.
+      description: Response confirming all user sessions have been revoked.
+    InternalRequesterResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        requesterId:
+          type: string
+        requesterName:
+          type: string
+        requesterPublicKeyHex:
+          type: string
+          description: 'Lowercase hex-encoded requester P-256 public key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed P-256))'
+        status:
+          $ref: '#/components/schemas/RequesterStatus'
+      description: Internal requester response
+    InternalAttestationKeyInfoResponse:
+      type: object
+      required:
+        - approverId
+        - authPublicKeyHex
+        - attestationPublicKeyHex
+        - attestationType
+        - userId
+      properties:
+        approverId:
+          type: string
+          description: Approver device UUID
+        authPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 auth public key (66 hex chars for P-256, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+        attestationPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded attestation key's public key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+        attestationType:
+          $ref: e2ee-protocol-openapi.yaml#/components/schemas/AckAgent.Common.AttestationSecurityType
+        userId:
+          type: string
+      description: Internal attestation key info response
+    InternalValidateRequesterResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Whether the requester is valid for the specified user
+      description: Internal validate requester response
+    ListApproversResponse:
+      type: object
+      properties:
+        approvers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApproverInfo'
+      description: List approvers response
+    ListLoginHistoryResponse:
+      type: object
+      required:
+        - entries
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoginHistoryEntry'
+      description: List login history response
+    ListRequestersResponse:
+      type: object
+      properties:
+        requesters:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequesterResponse'
+      description: List requesters response
+    ListUserApproverSessionsResponse:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApproverSessionInfo'
+      description: List user approver sessions response
+    ListUserRequesterSessionsResponse:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequesterSessionInfo'
+      description: List user requester sessions response
+    LoginHistoryEntry:
+      type: object
+      required:
+        - id
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Session ID
+        requesterId:
+          type: string
+          description: Requester ID
+        requesterName:
+          type: string
+          description: Requester name (CLI name or web app name)
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        sourceIp:
+          type: string
+          description: Source IP address
+        createdAt:
+          type: string
+          format: date-time
+          description: When the login was initiated
+        expiresAt:
+          type: string
+          format: date-time
+          description: When the session expires
+      description: Login history entry
+    ReLoginRequest:
+      type: object
+      required:
+        - authPublicKeyHex
+        - attestationType
+        - authKeyBindingAssertion
+        - challengeId
+        - deviceName
+      properties:
+        authPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 auth public key (66 hex chars for P-256, 33 bytes: 0x02/0x03 || X (compressed
+            P-256))
+          example: 02b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2
+        attestationType:
+          $ref: e2ee-protocol-openapi.yaml#/components/schemas/AckAgent.Common.AttestationSecurityType
+        authKeyBindingAssertion:
+          type: string
+          description: Auth key binding assertion proving ownership (base64)
+        challengeId:
+          type: string
+          description: Challenge ID from /api/auth/challenge
+        deviceName:
+          type: string
+          description: Device name for display
+        apnsToken:
+          type: string
+          description: APNs token for push notifications (iOS)
+      description: Re-login request - authenticate using a previously registered P-256 auth key
+    ReLoginResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          format: int32
+      description: Re-login response
+    RegisterRequest:
+      type: object
+      required:
+        - authPublicKeyHex
+        - attestationType
+        - deviceName
+      properties:
+        authPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 auth public key for auth service authentication (66 hex chars for P-256, 33
+            bytes: 0x02/0x03 || X (compressed P-256))
+          example: 02b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2
+        authAttestationObject:
+          type: string
+          description: App Attest attestation object for auth key (base64)
+        authKeyBindingAssertion:
+          type: string
+          description: Key binding assertion proving auth key ownership (base64)
+        authKeyBindingChallenge:
+          type: string
+          description: Challenge for auth key binding (base64)
+        attestationType:
+          $ref: e2ee-protocol-openapi.yaml#/components/schemas/AckAgent.Common.AttestationSecurityType
+        deviceName:
+          type: string
+        encryptionPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 ECDH encryption public key, compressed format (66 hex chars for P-256, 33 bytes:
+            0x02/0x03 || X (compressed P-256))
+          example: 0200a3b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2
+      description: Register request
+    RegisterResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          format: int32
+      description: Register response
+    RequesterResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        requesterId:
+          type: string
+        requesterName:
+          type: string
+        requesterUrl:
+          type: string
+        userId:
+          type: string
+        status:
+          $ref: '#/components/schemas/RequesterStatus'
+        createdAt:
+          type: string
+          format: date-time
+      description: Requester response
+    RequesterSessionInfo:
+      type: object
+      required:
+        - id
+        - requesterName
+        - requesterPublicKeyHex
+        - createdAt
+        - expiresAt
+      properties:
+        id:
+          type: string
+          description: Session ID
+        requesterName:
+          type: string
+        requesterPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded requester P-256 ECDH public key for SAS computation (66 hex chars, 33 bytes: 0x02/0x03
+            || X (compressed P-256))
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+      description: Requester session info for list
+    UpdateApproverRequest:
+      type: object
+      properties:
+        deviceName:
+          type: string
+        deviceType:
+          type: string
+        apnsToken:
+          type: string
+        apnsEnvironment:
+          type: string
+          enum:
+            - development
+            - production
+        fcmToken:
+          type: string
+        encryptionPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 ECDH public key for E2E encryption (66 hex chars for P-256, 33 bytes: 0x02/0x03
+            || X (compressed P-256), no biometric)
+        encryptionKeyBindingAssertion:
+          type: string
+          format: byte
+          description: Assertion from attestation key binding encryption key
+      description: Update approver request
+    VerifyApproverSessionRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: User ID from OIDC token
+      description: Verify approver session request
+    VerifyApproverSessionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      description: Verify approver session response
+    VerifyRequesterSessionRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: User ID from OIDC token
+      description: Verify requester session request
+    VerifyRequesterSessionResponse:
+      type: object
+      required:
+        - status
+        - pairingId
+      properties:
+        status:
+          type: string
+          description: Verification status
+        pairingId:
+          type: string
+          description: ID of the created requester pairing
+      description: Verify requester session response
+    EnrollCredentialRequest:
+      type: object
+      required:
+        - commitmentWithProof
+        - bindingSignature
+        - deviceId
+      properties:
+        commitmentWithProof:
+          type: string
+          format: byte
+          description: >-
+            Base64-encoded blind commitment with ZK proof from bbs_commit_with_nym(). Proves the holder knows their nym
+            secret without revealing it.
+        bindingSignature:
+          type: string
+          format: byte
+          description: >-
+            Base64-encoded P-256 ECDSA signature over SHA256(commitmentWithProof), proving the attested device controls
+            the commitment.
+        deviceId:
+          type: string
+          description: Approver device UUID.
+      description: Request to enroll a BBS+ anonymous attestation credential.
+    RefreshCredentialRequest:
+      type: object
+      required:
+        - commitmentWithProof
+        - bindingSignature
+        - deviceId
+      properties:
+        commitmentWithProof:
+          type: string
+          format: byte
+          description: Base64-encoded blind commitment with ZK proof for the new credential.
+        bindingSignature:
+          type: string
+          format: byte
+          description: >-
+            Base64-encoded P-256 ECDSA signature over SHA256(commitmentWithProof), proving the attested device controls
+            the commitment.
+        deviceId:
+          type: string
+          description: Approver device UUID.
+      description: Request to refresh a BBS+ anonymous attestation credential.
+    EnrollCredentialResponse:
+      type: object
+      required:
+        - blindSignature
+        - signerNymEntropy
+        - issuerPublicKey
+        - issuerPublicKeyId
+        - messages
+        - expiresAt
+      properties:
+        blindSignature:
+          type: string
+          format: byte
+          description: Base64-encoded 80-byte BBS+ blind signature.
+        signerNymEntropy:
+          type: string
+          format: byte
+          description: >-
+            Base64-encoded 32-byte issuer nym entropy. Combined with the holder's nym secret via
+            bbs_verify_blind_sign_with_nym() to derive the combined nym secret used for pseudonym generation.
+        issuerPublicKey:
+          type: string
+          format: byte
+          description: Base64-encoded 96-byte BLS12-381 G2 issuer public key.
+        issuerPublicKeyId:
+          type: string
+          description: Unique identifier of the issuer key that signed this credential.
+        messages:
+          type: array
+          items:
+            type: string
+            format: byte
+          description: >-
+            Base64-encoded signer messages in signing order: [attestationType, deviceType, issuedAt, expiresAt]. The
+            holder needs these exact values for blind signature verification and later proof generation.
+        expiresAt:
+          type: integer
+          format: int64
+          description: Credential expiry as Unix epoch seconds.
+      description: >-
+        Response containing the blind signature, issuer nym entropy, and signer messages. The holder must call
+        bbs_verify_blind_sign_with_nym() to verify the signature and extract the combined nym secret.
+    IssuerPublicKeyInfo:
+      type: object
+      required:
+        - id
+        - publicKey
+        - algorithm
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Unique key identifier.
+        publicKey:
+          type: string
+          format: byte
+          description: Base64-encoded BLS12-381 G2 public key (96 bytes).
+        algorithm:
+          type: string
+          description: Signing algorithm identifier.
+        createdAt:
+          type: string
+          format: date-time
+        rotatedAt:
+          type: string
+          format: date-time
+          nullable: true
+      description: Issuer public key information for BBS+ credential verification.
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth2 access token issued by the OIDC service.
+servers:
+  - url: http://127.0.0.1:4455
+    description: Local development
+  - url: https://auth.ackagent.com
+    description: Production

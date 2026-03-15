@@ -1,0 +1,799 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Relay Service API
+  version: 1.0.1
+  license:
+    name: Proprietary
+    url: https://ackagent.com/terms
+  description: |-
+    REST API for the AckAgent relay service. Handles signing request routing between
+    requesters and approver devices. All signing request payloads are end-to-end
+    encrypted using P-256 ECDH key exchange and ChaCha20-Poly1305.
+
+    The relay is intentionally "blind" - it cannot see request types, key identifiers,
+    what is being signed, or approval/rejection decisions. It only knows user IDs,
+    request IDs, and encrypted blobs.
+
+    ## Authentication
+
+    All API endpoints use OIDC Bearer token authentication. Tokens are obtained from
+    the login service OIDC provider and validated via JWKS.
+tags:
+  - name: Health
+    description: Health and readiness check endpoints
+  - name: Requests
+    description: Signing request creation and status polling
+  - name: Internal
+    description: Internal service-to-service endpoints
+  - name: Audit
+    description: Audit chain synchronization endpoints
+paths:
+  /api/v1/audit/device/sync:
+    post:
+      operationId: AuditDeviceSync_sync
+      summary: Sync device audit chain
+      description: >-
+        Synchronizes device audit chain entries to the server for tamper-evident logging. Each entry is
+        cryptographically signed by the device.
+      parameters: []
+      responses:
+        '200':
+          description: Audit entries synchronized successfully. Returns the count of synced entries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditSyncResponse'
+              example:
+                syncedCount: 5
+                serverReceivedAt: '2024-01-15T12:00:00Z'
+        '400':
+          description: Invalid request payload. Check entry format and signatures.
+        '401':
+          description: Missing or invalid authentication token.
+        '403':
+          description: Device is not authorized to sync audit entries.
+      tags:
+        - Audit
+      requestBody:
+        description: Audit chain entries to synchronize with device attestation.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditSyncRequest'
+            example:
+              deviceId: dev_abc123
+              orgId: org_xyz789
+              chainTip: abc123def456...
+              entries:
+                - entryId: entry_001
+                  sequence: 1
+                  timestamp: '2024-01-15T12:00:00Z'
+                  entryHash: hash123...
+                  entryType: signing_request
+                  encryptedPayloadHash: payload_hash...
+                  plaintextHash: plaintext_hash...
+                  deviceSignature: sig123...
+                  auditSigningPublicKeyHex: 02a1b2c3d4...
+  /api/v1/callbacks/{id}:
+    post:
+      operationId: Callbacks_submit
+      summary: Submit signing response
+      description: >-
+        Submits an encrypted signing response from an approver device. The response is encrypted end-to-end and the
+        relay cannot read its contents.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Request ID to submit the response for.
+          schema:
+            type: string
+          example: req_xyz789
+      responses:
+        '200':
+          description: Response submitted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                required:
+                  - status
+              example:
+                status: ok
+        '400':
+          description: Invalid response payload. Check encryption format.
+        '401':
+          description: Missing or invalid authentication token.
+        '403':
+          description: Device is not authorized to respond to this request.
+        '404':
+          description: Request not found or already expired.
+        '409':
+          description: Request has already been responded to by another device.
+        '410':
+          description: Request has expired and can no longer be responded to.
+      tags:
+        - Requests
+      requestBody:
+        description: Encrypted response from the approver device.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallbackRequest'
+            example:
+              approverEphemeralKeyHex: 020000000000000000000000000000000000000000000000000000000000000000ff
+              encryptedResponse: ZW5jcnlwdGVkIHJlc3BvbnNl
+              responseNonce: bm9uY2UxMjM0NTY3ODkwMTI=
+  /api/v1/health:
+    get:
+      operationId: Health_check
+      summary: Health check
+      description: Returns the current health status of the relay service. Used by load balancers and monitoring systems.
+      parameters: []
+      responses:
+        '200':
+          description: Service is healthy and accepting requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                required:
+                  - status
+              example:
+                status: ok
+      tags:
+        - Health
+      security:
+        - {}
+  /api/v1/health/ready:
+    get:
+      operationId: HealthReady_check
+      summary: Readiness check
+      description: >-
+        Returns the readiness status including database and OIDC connectivity. Used by orchestrators to determine if the
+        service can accept traffic.
+      parameters: []
+      responses:
+        '200':
+          description: Service is ready and all dependencies are healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                required:
+                  - status
+              example:
+                status: ok
+        '503':
+          description: Service is not ready. Database or OIDC provider may be unavailable.
+      tags:
+        - Health
+      security:
+        - {}
+  /api/v1/requests:
+    post:
+      operationId: Requests_create
+      summary: Create signing request
+      description: >-
+        Creates a new signing request that will be routed to the user's approver devices. The request payload is
+        encrypted end-to-end.
+      parameters: []
+      responses:
+        '200':
+          description: Request created and approved synchronously (rare, only for pre-approved requesters).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSigningResponse'
+              example:
+                id: req_xyz789
+                status: responded
+                expiresAt: '2024-01-15T12:05:00Z'
+        '202':
+          description: Request created and pending approval. Poll the request status endpoint for updates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSigningResponse'
+              example:
+                id: req_xyz789
+                status: pending
+                expiresAt: '2024-01-15T12:05:00Z'
+        '400':
+          description: Invalid request payload. Check required fields and encryption.
+        '401':
+          description: Missing or invalid authentication token.
+        '403':
+          description: Requester is not authorized to create signing requests.
+        '404':
+          description: User or requester not found.
+      tags:
+        - Requests
+      security:
+        - BearerAuth:
+            - relay:request
+      requestBody:
+        description: Encrypted signing request with metadata and wrapped keys.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSigningRequest'
+            example:
+              id: req_xyz789
+              requesterId: rqr_abc123
+              requesterEphemeralKeyHex: 02a1b2c3d4e5f6...
+              encryptedPayload: ZW5jcnlwdGVkIHBheWxvYWQ=
+              payloadNonce: bm9uY2UxMjM0NTY3ODkwMTI=
+              expiresIn: 300
+              timestamp: 1705320000000
+  /api/v1/requests/{id}:
+    get:
+      operationId: RequestById_get
+      summary: Get request status
+      description: >-
+        Polls the status of a signing request. Returns the encrypted response when available. Use exponential backoff
+        when polling.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Request ID to check status for.
+          schema:
+            type: string
+          example: req_xyz789
+      responses:
+        '200':
+          description: Request status retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SigningRequestStatus'
+              example:
+                id: req_xyz789
+                status: responded
+                encryptedResponse: ZW5jcnlwdGVkIHJlc3BvbnNl
+                responseNonce: bm9uY2UxMjM0NTY3ODkwMTI=
+                respondedAt: '2024-01-15T12:01:00Z'
+                expiresAt: '2024-01-15T12:05:00Z'
+        '401':
+          description: Missing or invalid authentication token.
+        '403':
+          description: Not authorized to view this request.
+        '404':
+          description: Request not found.
+      tags:
+        - Requests
+      security:
+        - BearerAuth:
+            - relay:request
+  /api/v1/users/{id}/pending:
+    get:
+      operationId: UserPending_list
+      summary: List pending requests
+      description: >-
+        Lists all pending signing requests for a user. Called by approver devices to fetch requests when push
+        notification is missed or for initial sync.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID to list pending requests for.
+          schema:
+            type: string
+          example: usr_abc123
+      responses:
+        '200':
+          description: Pending requests retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PendingRequest'
+              example:
+                - id: req_xyz789
+                  requesterId: rqr_abc123
+                  requesterName: Work Laptop
+                  requesterEphemeralKeyHex: 02a1b2c3d4e5f6...
+                  encryptedPayload: ZW5jcnlwdGVkIHBheWxvYWQ=
+                  payloadNonce: bm9uY2UxMjM0NTY3ODkwMTI=
+                  expiresAt: '2024-01-15T12:05:00Z'
+                  createdAt: '2024-01-15T12:00:00Z'
+        '401':
+          description: Missing or invalid authentication token.
+        '403':
+          description: Not authorized to view pending requests for this user.
+      tags:
+        - Requests
+      security:
+        - BearerAuth:
+            - relay:request
+security:
+  - BearerAuth: []
+components:
+  schemas:
+    AuditSyncEntry:
+      type: object
+      required:
+        - entryId
+        - sequence
+        - timestamp
+        - entryHash
+        - entryType
+        - encryptedPayloadHash
+        - plaintextHash
+        - deviceSignature
+        - auditSigningPublicKeyHex
+      properties:
+        entryId:
+          type: string
+          description: Unique identifier for this audit chain entry.
+          example: entry_001
+        sequence:
+          type: integer
+          format: int64
+          description: Monotonically increasing sequence number within the device's chain.
+          example: 42
+        timestamp:
+          type: string
+          description: ISO 8601 timestamp when the entry was created on the device.
+          example: '2024-01-15T12:00:00Z'
+        entryHash:
+          type: string
+          description: SHA256 hash of the entry contents for integrity verification.
+          example: abc123def456...
+        prevHash:
+          type: string
+          description: Hash of the previous entry in the chain, creating a linked list.
+          example: xyz789ghi012...
+        entryType:
+          type: string
+          description: Type of audit event (e.g., signing_request, key_generation).
+          example: signing_request
+        requestHash:
+          type: string
+          description: Hash of the associated signing request, if applicable.
+          example: req_hash_123...
+        challengeHash:
+          type: string
+          description: Hash of the challenge used for signing, if applicable.
+          example: challenge_hash_456...
+        challengeContext:
+          type: string
+          description: Additional context for the challenge (e.g., domain, application).
+          example: github.com
+        encryptedPayloadHash:
+          type: string
+          description: Hash of the encrypted payload for verification without decryption.
+          example: encrypted_hash_789...
+        plaintextHash:
+          type: string
+          description: Hash of the plaintext for verification by the device only.
+          example: plaintext_hash_012...
+        deviceSignature:
+          type: string
+          description: Base64-encoded ECDSA P-256 signature over the entry using the device's audit signing key.
+          example: c2lnbmF0dXJlIGRhdGE=
+        auditSigningPublicKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded P-256 ECDSA public key of the purpose-scoped audit signing key (66 hex chars, 33
+            bytes: 0x02/0x03 || X (compressed P-256)).
+          example: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+      description: Single entry in the device audit chain for tamper-evident logging.
+    AuditSyncRequest:
+      type: object
+      required:
+        - deviceId
+        - orgId
+        - chainTip
+        - entries
+      properties:
+        deviceId:
+          type: string
+          description: Unique identifier of the device submitting the sync.
+          example: dev_abc123
+        orgId:
+          type: string
+          description: Organization ID for enterprise audit aggregation.
+          example: org_xyz789
+        chainTip:
+          type: string
+          description: Hash of the latest entry the server has, for incremental sync.
+          example: tip_hash_123...
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditSyncEntry'
+          description: Array of new audit entries to synchronize.
+          example:
+            - entryId: entry_001
+              sequence: 1
+              timestamp: '2024-01-15T12:00:00Z'
+              entryHash: hash123...
+              entryType: signing_request
+              encryptedPayloadHash: payload_hash...
+              plaintextHash: plaintext_hash...
+              deviceSignature: sig123...
+              auditSigningPublicKeyHex: 02a1b2c3d4...
+        attestation:
+          type: string
+          description: Base64-encoded device attestation for authenticity verification.
+          example: YXR0ZXN0YXRpb24gZGF0YQ==
+        attestationType:
+          type: string
+          enum:
+            - app_attest
+            - play_integrity
+            - software
+          description: >-
+            Type of attestation (app_attest for iOS App Attest, play_integrity for Android Play Integrity, software for
+            non-attested keys).
+          example: app_attest
+      description: Request to synchronize device audit chain entries to the server.
+    AuditSyncResponse:
+      type: object
+      required:
+        - syncedCount
+      properties:
+        syncedCount:
+          type: integer
+          format: int32
+          description: Number of audit entries successfully synchronized.
+          example: 5
+        serverReceivedAt:
+          type: string
+          format: date-time
+          description: Server timestamp when the sync was processed.
+          example: '2024-01-15T12:00:00Z'
+        errors:
+          type: array
+          items:
+            type: string
+          description: List of errors for entries that failed to sync.
+          example:
+            - hash verification failed for entry entry_003
+      description: Response containing the result of the audit sync operation.
+    CallbackRequest:
+      type: object
+      required:
+        - approverEphemeralKeyHex
+        - encryptedResponse
+        - responseNonce
+      properties:
+        approverEphemeralKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded approver's ephemeral P-256 public key (33 bytes, 66 hex chars, compressed format) for
+            response encryption.
+          example: 020000000000000000000000000000000000000000000000000000000000000000ff
+        encryptedResponse:
+          type: string
+          format: byte
+          description: Base64-encoded ChaCha20-Poly1305 encrypted response.
+          example: ZW5jcnlwdGVkIHJlc3BvbnNl
+        responseNonce:
+          type: string
+          format: byte
+          description: Base64-encoded 12-byte nonce for response decryption.
+          example: bm9uY2UxMjM0NTY3ODkwMTI=
+      description: Encrypted response from an approver device. Attestation travels inside the encrypted blob.
+    CreateSigningRequest:
+      type: object
+      required:
+        - id
+        - requesterId
+        - requesterEphemeralKeyHex
+        - encryptedPayload
+        - payloadNonce
+        - timestamp
+      properties:
+        id:
+          type: string
+          description: Client-generated unique request ID for idempotency.
+          example: req_xyz789
+        requesterId:
+          type: string
+          description: ID of the registered requester making this request.
+          example: rqr_abc123
+        signingPublicKeyHex:
+          type: string
+          description: >-
+            Optional lowercase hex-encoded public key of a specific key to use for signing. 66 hex chars for P-256, 33
+            bytes.
+          example: a1b2c3d4e5f6...
+        requesterEphemeralKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded requester's ephemeral P-256 public key (33 bytes, 66 hex chars, compressed) for
+            request encryption.
+          example: 02a1b2c3d4e5f6...
+        encryptedPayload:
+          type: string
+          format: byte
+          description: Base64-encoded ChaCha20-Poly1305 encrypted request payload.
+          example: ZW5jcnlwdGVkIHBheWxvYWQ=
+        payloadNonce:
+          type: string
+          format: byte
+          description: Base64-encoded 12-byte nonce for payload decryption.
+          example: bm9uY2UxMjM0NTY3ODkwMTI=
+        wrappedKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/WrappedKey'
+          description: Per-device wrapped symmetric keys for multi-device support.
+          example:
+            - encryptionPublicKeyHex: a1b2c3d4e5f6...
+              wrappedKey: d3JhcHBlZCBrZXk=
+              wrappedKeyNonce: d3JhcHBlZCBub25jZQ==
+              requesterEphemeralKeyHex: 02a1b2c3d4e5f6...
+        expiresIn:
+          type: integer
+          format: int32
+          description: Request expiration time in seconds (default 300, max 300).
+          default: 300
+          example: 300
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp in milliseconds when the request was created.
+          example: 1705320000000
+      description: Request to create a new signing request with encrypted payload.
+    CreateSigningResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the created signing request.
+          example: req_xyz789
+        status:
+          type: string
+          description: Current status of the request (pending or responded).
+          example: pending
+        expiresAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the request will expire.
+          example: '2024-01-15T12:05:00Z'
+      description: Response containing the created signing request details.
+    InternalAuthNotifyRequest:
+      type: object
+      required:
+        - userId
+        - sessionType
+        - requesterName
+      properties:
+        userId:
+          type: string
+          description: User ID whose devices should receive the notification.
+          example: usr_abc123
+        sessionType:
+          type: string
+          enum:
+            - device_link
+            - browser_login
+          description: Type of authentication session being notified about.
+          example: browser_login
+        requesterName:
+          type: string
+          description: Human-readable description of the authentication source.
+          example: Chrome on macOS
+      description: Internal request to notify user devices about an authentication session.
+    InternalAuthNotifyResponse:
+      type: object
+      properties:
+        notificationsSent:
+          type: integer
+          format: int32
+          description: Number of push notifications successfully dispatched.
+          example: 2
+      description: Response containing the notification dispatch result.
+    InternalExpireRequestsResponse:
+      type: object
+      properties:
+        expiredCount:
+          type: integer
+          format: int64
+          description: Number of pending requests that were expired.
+          example: 3
+      description: Response containing the count of expired requests.
+    PendingRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the pending request.
+          example: req_xyz789
+        signingPublicKeyHex:
+          type: string
+          description: >-
+            Optional lowercase hex-encoded public key of the specific key requested for signing. 66 hex chars for P-256,
+            33 bytes.
+          example: a1b2c3d4e5f6...
+        requesterEphemeralKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded requester's ephemeral P-256 public key (33 bytes, 66 hex chars) for request
+            encryption.
+          example: 02a1b2c3d4e5f6...
+        encryptedPayload:
+          type: string
+          format: byte
+          description: Base64-encoded encrypted request payload.
+          example: ZW5jcnlwdGVkIHBheWxvYWQ=
+        payloadNonce:
+          type: string
+          format: byte
+          description: Base64-encoded 12-byte nonce for payload decryption.
+          example: bm9uY2UxMjM0NTY3ODkwMTI=
+        wrappedKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/WrappedKey'
+          description: Per-device wrapped symmetric keys.
+          example:
+            - encryptionPublicKeyHex: a1b2c3d4e5f6...
+              wrappedKey: d3JhcHBlZCBrZXk=
+              wrappedKeyNonce: d3JhcHBlZCBub25jZQ==
+              requesterEphemeralKeyHex: 02a1b2c3d4e5f6...
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp in milliseconds when the request was created.
+          example: 1705320000000
+        requesterId:
+          type: string
+          description: ID of the requester that created this request.
+          example: rqr_abc123
+        requesterName:
+          type: string
+          description: Human-readable name of the requester.
+          example: Work Laptop
+        expiresAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the request expires.
+          example: '2024-01-15T12:05:00Z'
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the request was created.
+          example: '2024-01-15T12:00:00Z'
+        clientIp:
+          type: string
+          description: IP address of the client that created the request.
+          example: 192.168.1.100
+        relayContext:
+          allOf:
+            - $ref: '#/components/schemas/RelayContext'
+          description: HTTP context verified by the relay service.
+          example:
+            externalIp: 203.0.113.50
+            userAgent: AckAgent CLI/1.0.0
+            receivedAt: '2024-01-15T12:00:00Z'
+      description: Pending signing request awaiting approval from an approver device.
+    RelayContext:
+      type: object
+      properties:
+        externalIp:
+          type: string
+          description: External IP address from the HTTP connection.
+          example: 203.0.113.50
+        userAgent:
+          type: string
+          description: User-Agent header from the HTTP request.
+          example: AckAgent CLI/1.0.0
+        origin:
+          type: string
+          description: Origin header from the HTTP request (for web clients).
+          example: https://app.example.com
+        originVerified:
+          type: boolean
+          description: Whether the Origin header was validated against allowed origins.
+          example: true
+        receivedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the relay received the request.
+          example: '2024-01-15T12:00:00Z'
+      description: HTTP context captured and verified by the relay service.
+    SigningRequestStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the signing request.
+          example: req_xyz789
+        status:
+          type: string
+          enum:
+            - pending
+            - responded
+            - expired
+          description: Current status (never reveals approval/rejection for privacy).
+          example: responded
+        approverEphemeralKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded approver's ephemeral P-256 public key (33 bytes, 66 hex chars, compressed) for
+            response encryption (present when responded).
+          example: 02a1b2c3d4e5f6...
+        encryptedResponse:
+          type: string
+          format: byte
+          description: Base64-encoded encrypted response (present when responded).
+          example: ZW5jcnlwdGVkIHJlc3BvbnNl
+        responseNonce:
+          type: string
+          format: byte
+          description: Base64-encoded nonce for response decryption (present when responded).
+          example: bm9uY2UxMjM0NTY3ODkwMTI=
+        respondedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the response was received (present when responded).
+          example: '2024-01-15T12:01:00Z'
+        expiresAt:
+          type: string
+          format: date-time
+          description: Timestamp when the request expires or expired.
+          example: '2024-01-15T12:05:00Z'
+      description: Privacy-preserving status of a signing request.
+    WrappedKey:
+      type: object
+      required:
+        - encryptionPublicKeyHex
+        - wrappedKey
+        - wrappedKeyNonce
+        - requesterEphemeralKeyHex
+      properties:
+        encryptionPublicKeyHex:
+          type: string
+          description: Lowercase hex-encoded P-256 ECDH public key (33 bytes, 66 hex chars) of the device that can unwrap this key.
+          example: a1b2c3d4e5f6...
+        wrappedKey:
+          type: string
+          format: byte
+          description: Base64-encoded wrapped symmetric key.
+          example: d3JhcHBlZCBrZXk=
+        wrappedKeyNonce:
+          type: string
+          format: byte
+          description: Base64-encoded nonce for key unwrapping.
+          example: d3JhcHBlZCBub25jZQ==
+        requesterEphemeralKeyHex:
+          type: string
+          description: >-
+            Lowercase hex-encoded requester's per-device ephemeral P-256 public key (33 bytes, 66 hex chars) for key
+            wrapping.
+          example: 02a1b2c3d4e5f6...
+      description: Per-device wrapped symmetric key for multi-device encryption.
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth2 access token issued by the OIDC service.
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+    variables: {}
+  - url: https://relay.ackagent.com
+    description: Production server
+    variables: {}

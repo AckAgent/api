@@ -1,0 +1,254 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Metadata Types
+  version: '1.0'
+  description: Transaction metadata types for display and auditing.
+paths: {}
+components:
+  schemas:
+    TransactionMetadata:
+      type: object
+      properties:
+        hostname:
+          type: string
+          description: SSH target hostname.
+          example: server.example.com
+        username:
+          type: string
+          description: SSH username.
+          example: admin
+        port:
+          type: integer
+          format: int32
+          description: SSH port.
+          example: 22
+        command:
+          type: string
+          description: SSH command being executed.
+          example: ls -la
+        processChain:
+          type: array
+          items:
+            $ref: './source.yaml#/components/schemas/ProcessEntry'
+          description: Process chain for SSH operations.
+        sourceHostname:
+          type: string
+          description: Source machine hostname.
+          example: laptop.local
+        localIp:
+          type: string
+          description: Local IP address.
+          example: '192.168.1.50'
+        fileName:
+          type: string
+          description: File name for GPG operations.
+          example: document.pdf
+        commitMessage:
+          type: string
+          description: Git commit message.
+          example: 'feat: add new feature'
+        recipientEmail:
+          type: string
+          description: Recipient email for encryption.
+          example: recipient@example.com
+        isGitCommit:
+          type: boolean
+          description: Whether this is a git commit signing.
+          example: true
+        treeHash:
+          type: string
+          description: Git tree hash.
+          example: abc123def456
+        parentHashes:
+          type: array
+          items:
+            type: string
+          description: Git parent commit hashes.
+          example:
+            - parent123
+        authorName:
+          type: string
+          description: Git author name.
+          example: John Doe
+        authorEmail:
+          type: string
+          description: Git author email.
+          example: john@example.com
+        authorTimestamp:
+          type: integer
+          format: int64
+          description: Git author timestamp.
+          example: 1705320000
+        committerName:
+          type: string
+          description: Git committer name.
+          example: John Doe
+        committerEmail:
+          type: string
+          description: Git committer email.
+          example: john@example.com
+        committerTimestamp:
+          type: integer
+          format: int64
+          description: Git committer timestamp.
+          example: 1705320000
+        branch:
+          type: string
+          description: Git branch name.
+          example: main
+        repoName:
+          type: string
+          description: Repository name.
+          example: user/repo
+        commandLine:
+          type: string
+          description: Full command line.
+          example: git commit -S -m "message"
+        operationType:
+          type: string
+          description: Type of operation.
+          example: sign
+        inputSource:
+          type: string
+          description: Input source description.
+          example: file
+        isStdin:
+          type: boolean
+          description: Whether input is from stdin.
+          example: false
+        contentSize:
+          type: integer
+          format: int32
+          description: Content size in bytes.
+          example: 1024
+        contentHash:
+          type: string
+          description: Hash of the content.
+          example: sha256:abc123...
+        contentPreview:
+          type: string
+          description: Preview of the content.
+          example: First 100 characters...
+        contentFull:
+          type: string
+          description: Full content if small enough.
+          example: Full content here
+        senderKeyId:
+          type: string
+          description: Sender key ID for encryption.
+          example: ABCD1234
+        encryptedTo:
+          type: string
+          description: Recipient key ID.
+          example: EFGH5678
+        messageSize:
+          type: integer
+          format: int32
+          description: Encrypted message size.
+          example: 2048
+        isAnonymous:
+          type: boolean
+          description: Whether recipient is anonymous.
+          example: false
+        ageFileName:
+          type: string
+          description: Age file name.
+          example: secrets.age
+        ageFileSize:
+          type: integer
+          format: int64
+          description: Age file size.
+          example: 4096
+        ageEphemeralPublicHex:
+          type: string
+          description: Lowercase hex-encoded age ephemeral X25519 public key (64 hex chars for 32-byte key).
+          example: "a1b2c3d4e5f6..."
+        ageWrappedFileKey:
+          type: string
+          format: byte
+          description: Base64-encoded age wrapped file key.
+          example: YWdlIHdyYXBwZWQ=
+        ageRecipientPublicHex:
+          type: string
+          description: Lowercase hex-encoded age recipient X25519 public key (64 hex chars for 32-byte key).
+          example: "b2c3d4e5f6a1..."
+        actionTitle:
+          type: string
+          description: Action title for display.
+          example: Sign Document
+        actionDescription:
+          type: string
+          description: Action description.
+          example: Sign this PDF document
+        plaintext:
+          type: string
+          description: Plaintext content.
+          example: Content to approve
+        plaintextHash:
+          type: string
+          description: Hash of the plaintext.
+          example: sha256:xyz789...
+        contentType:
+          type: string
+          description: Content MIME type.
+          example: text/plain
+        toolName:
+          type: string
+          description: Claude tool name.
+          example: Bash
+        toolInputFormatted:
+          type: string
+          description: Formatted tool input.
+          example: npm test
+        contextPreimage:
+          type: string
+          description: Base64-encoded canonical JSON of the approval context preimage.
+          example: eyJzZXNzaW9uX2lkIjoic2Vzc2lvbl9hYmMxMjMifQ==
+        allowsModification:
+          type: boolean
+          description: Whether modification is allowed.
+          example: true
+        claudeSessionId:
+          type: string
+          description: Claude session ID.
+          example: session_123
+        sasWords:
+          type: array
+          items:
+            type: string
+          description: SAS verification words.
+          example:
+            - alpha
+            - bravo
+        sasEmojis:
+          type: array
+          items:
+            type: string
+          description: SAS verification emojis.
+          example:
+            - "\U0001F512"
+            - "\u2705"
+        loginSessionId:
+          type: string
+          description: Login session ID.
+          example: login_abc123
+        purpose:
+          type: string
+          description: Enrollment purpose.
+          example: ssh
+        algorithm:
+          type: string
+          description: Enrollment algorithm.
+          example: ed25519
+        label:
+          type: string
+          description: Key label.
+          example: Work Laptop
+        additionalInfo:
+          type: object
+          additionalProperties:
+            type: string
+          description: Additional key-value metadata.
+          example:
+            custom_field: custom_value
+      description: Metadata extracted from encrypted payloads for display.

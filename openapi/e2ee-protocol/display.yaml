@@ -1,0 +1,76 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Display Types
+  version: '1.0'
+  description: Types for displaying approval requests in the mobile app UI.
+paths: {}
+components:
+  schemas:
+    GenericDisplaySchema:
+      type: object
+      required:
+        - title
+        - fields
+      properties:
+        title:
+          type: string
+          description: Main title for the approval screen.
+          example: Sign Git Commit
+        historyTitle:
+          type: string
+          description: Shorter title for history list view.
+          example: Git Commit
+        subtitle:
+          type: string
+          description: Subtitle with additional context.
+          example: user/repo on main
+        icon:
+          type: string
+          description: SF Symbol name for iOS.
+          example: signature
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisplayField'
+          description: Fields to display in the approval UI.
+      description: Schema for displaying approval requests to users.
+
+    DisplayField:
+      type: object
+      required:
+        - label
+        - value
+      properties:
+        label:
+          type: string
+          description: Label for the field.
+          example: Repository
+        value:
+          type: string
+          description: Value to display.
+          example: github.com/user/repo
+        monospace:
+          type: boolean
+          description: Render value in monospace font.
+          default: false
+          example: true
+        expandable:
+          type: boolean
+          description: Field can be expanded to show more content.
+          default: false
+          example: false
+        multiline:
+          type: boolean
+          description: Render value as multiline text.
+          default: false
+          example: false
+        sensitive:
+          type: boolean
+          description: Value contains sensitive information.
+          default: false
+          example: false
+        icon:
+          type: string
+          description: SF Symbol name for iOS UI.
+          example: server.rack
+      description: A field to display in the approval UI.

@@ -1,0 +1,18 @@
+# Redocly OpenAPI linter configuration
+# Replaces vacuum ruleset.yaml - Redocly properly resolves cross-file $ref chains
+extends:
+  - recommended
+
+rules:
+  # Suppress: schemas defined for code generation but not used in API paths
+  # These are intentionally defined for generated client types
+  no-unused-components: off
+
+  # Suppress: localhost/internal server URLs are intentional for dev environments
+  no-server-example.com: off
+
+  # Suppress: health and metrics endpoints don't need 4xx responses
+  operation-4xx-response: off
+
+  # Suppress: tag names are self-descriptive, descriptions are optional
+  tag-description: off

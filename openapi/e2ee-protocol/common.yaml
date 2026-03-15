@@ -1,0 +1,251 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Common Types
+  version: '1.0'
+  description: Common types shared across all protocol components.
+paths: {}
+components:
+  schemas:
+    AckAgent.Common.AttestationSecurityType:
+      type: string
+      enum:
+        - ios_secure_enclave
+        - android_tee
+        - android_strongbox
+        - software
+        - play_integrity
+      description: Combined platform and security level for attestation.
+
+    AckAgent.Common.ApproverDeviceType:
+      type: string
+      enum:
+        - ios
+        - android
+      description: Device platform type.
+
+    AckAgent.Common.DataIntegrityProof:
+      type: object
+      required:
+        - type
+        - cryptosuite
+        - proofValue
+      properties:
+        type:
+          type: string
+          enum:
+            - DataIntegrityProof
+          description: Data Integrity proof type.
+        cryptosuite:
+          type: string
+          enum:
+            - bbs-2023
+          description: Data Integrity cryptosuite identifier.
+        proofValue:
+          type: string
+          description: >-
+            Serialized BBS+ proof value. Canonical format is multibase base64url
+            (prefix `u`), with URL-safe/base64 compatibility accepted during
+            migration.
+        created:
+          type: string
+          format: date-time
+          description: Optional proof creation timestamp.
+        verificationMethod:
+          type: string
+          description: Optional proof verification method identifier.
+        proofPurpose:
+          type: string
+          description: Optional proof purpose.
+      description: W3C Data Integrity proof object for bbs-2023 presentations.
+
+    AckAgent.Common.AnonymousAttestationScopedLinking:
+      type: object
+      required:
+        - mode
+        - scopeType
+        - scopeId
+        - linkHandle
+      properties:
+        mode:
+          type: string
+          enum:
+            - pairwise_account_secret
+          description: Scoped-linking mechanism identifier.
+        scopeType:
+          type: string
+          enum:
+            - request
+            - relying_party
+            - organization
+          description: Linkability boundary taxonomy.
+        scopeId:
+          type: string
+          description: Scope identifier (for example relying-party ID or organization ID).
+        linkHandle:
+          type: string
+          description: Opaque URL-safe pairwise linking handle.
+      description: Optional scoped-linking metadata for cross-device experiments.
+
+    AckAgent.Common.AnonymousAttestationRevealedMessages:
+      type: object
+      required:
+        - attestationType
+        - deviceType
+        - expiresAt
+      properties:
+        attestationType:
+          $ref: '#/components/schemas/AckAgent.Common.AttestationSecurityType'
+        deviceType:
+          $ref: '#/components/schemas/AckAgent.Common.ApproverDeviceType'
+        expiresAt:
+          type: integer
+          format: int64
+          description: Credential expiry as Unix epoch seconds.
+      description: >-
+        Messages disclosed by the BBS+ selective disclosure proof.
+        These are the only credential attributes visible to the verifier.
+
+    AckAgent.Common.AnonymousAttestationPayload:
+      type: object
+      required:
+        - pseudonym
+        - scope
+        - presentationHeader
+        - revealedMessages
+        - issuerPublicKeyId
+      properties:
+        pseudonym:
+          type: string
+          format: byte
+          description: >-
+            Scope-bound pseudonym (48 bytes compressed G1 point, base64).
+            Deterministically derived from the holder's nym secret and
+            the scope. Same secret + same scope = same pseudonym (enables
+            replay detection). Different scopes produce unrelated pseudonyms
+            (prevents cross-request correlation).
+        scope:
+          type: string
+          description: >-
+            Scope used for pseudonym derivation (request ID).
+            Per-request pseudonyms provide maximum privacy.
+        presentationHeader:
+          type: string
+          format: byte
+          description: >-
+            Presentation header bound to the proof (base64).
+            Provides freshness binding to the specific request.
+        revealedMessages:
+          $ref: '#/components/schemas/AckAgent.Common.AnonymousAttestationRevealedMessages'
+        issuerPublicKeyId:
+          type: string
+          description: >-
+            Unique identifier of the issuer key that signed the prover's
+            credential. Enables verifiers to look up the correct key for
+            proof verification during key rotation.
+        scopedLinking:
+          $ref: '#/components/schemas/AckAgent.Common.AnonymousAttestationScopedLinking'
+      description: AckAgent-specific payload inside the W3C envelope.
+
+    AckAgent.Common.AnonymousAttestation:
+      type: object
+      required:
+        - '@context'
+        - type
+        - proof
+        - ackagentAnonymousAttestation
+      properties:
+        '@context':
+          type: array
+          items:
+            type: string
+          description: JSON-LD context array for VC/Data Integrity semantics.
+        type:
+          type: array
+          items:
+            type: string
+          description: Presentation type array (includes VerifiablePresentation).
+        proof:
+          $ref: '#/components/schemas/AckAgent.Common.DataIntegrityProof'
+        ackagentAnonymousAttestation:
+          $ref: '#/components/schemas/AckAgent.Common.AnonymousAttestationPayload'
+      description: >-
+        Anonymous attestation envelope using W3C Data Integrity (`bbs-2023`).
+        Proves the response came from a genuine device with a valid credential
+        from a known issuer without revealing device identity. Travels inside
+        the encrypted response blob so the relay stays completely blind.
+
+    AckAgent.Common.KeyMetadataAttestation:
+      type: object
+      required:
+        - publicKeyHex
+        - assertion
+        - attestationType
+        - challenge
+        - attestationTimestamp
+      properties:
+        publicKeyHex:
+          type: string
+          description: "Lowercase hex-encoded public key being attested (66 hex chars for P-256 33-byte key, or 64 hex chars for Ed25519 32-byte key)."
+        assertion:
+          type: string
+          format: byte
+          description: "App Attest assertion or software signature (base64)"
+        attestationType:
+          $ref: '#/components/schemas/AckAgent.Common.AttestationSecurityType'
+        attestationObject:
+          type: string
+          format: byte
+          description: "Apple CBOR attestation object for hardware attestation (base64)"
+        challenge:
+          type: string
+          format: byte
+          description: "SHA256(id || publicKey || createdAt || deviceAuthPublicKey)"
+        attestationTimestamp:
+          type: integer
+          format: int64
+          description: "Unix timestamp in milliseconds"
+        attestationPublicKeyHex:
+          type: string
+          description: "Lowercase hex-encoded attestation key's public key (66 hex chars for P-256 33-byte compressed key)."
+      description: Attestation proof that a key was created on attested device hardware.
+
+    AckAgent.Common.KeyPurpose:
+      type: string
+      enum:
+        - ssh
+        - gpg
+        - age
+      description: Purpose of the key being enrolled.
+      example: ssh
+
+    AckAgent.Common.SigningErrorCode:
+      type: integer
+      enum:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+      description: Error codes for signing failures (1=rejected, 2=timeout, 3=key_not_found, 4=invalid_payload, 5=attestation_failed, 6=internal_error).
+      example: 1
+
+    AckAgent.Common.TransactionType:
+      type: string
+      enum:
+        - ssh_auth
+        - ssh_sign
+        - gpg_sign
+        - gpg_decrypt
+        - age_unwrap
+        - ecdh_derive
+        - custom
+        - claude_approval
+        - claude_question
+        - enroll
+        - device_login
+        - web
+        - pam_auth
+        - captcha
+      description: Type of signing or approval request.
+      example: gpg_sign

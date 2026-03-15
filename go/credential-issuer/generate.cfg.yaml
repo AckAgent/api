@@ -1,0 +1,7 @@
+package: credentialissuer
+generate:
+  models: true
+  client: true
+output: gen.go
+output-options:
+  skip-prune: true

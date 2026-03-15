@@ -1,0 +1,200 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol Types
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://ackagent.com/terms
+  description: |-
+    Type definitions for the AckAgent signing protocol. These types define the structure
+    of encrypted request and response payloads exchanged between requesters and approver
+    devices.
+
+    All payloads are encrypted end-to-end using P-256 ECDH key exchange and ChaCha20-Poly1305.
+    The relay service cannot read the contents of these payloads.
+
+    This master file aggregates all protocol types from modular component files.
+servers:
+  - url: https://api.ackagent.com
+    description: Production API (types only, no endpoints)
+tags: []
+paths: {}
+components:
+  schemas:
+    # ==========================================================================
+    # Common Types
+    # ==========================================================================
+    AckAgent.Common.AttestationSecurityType:
+      $ref: './e2ee-protocol/common.yaml#/components/schemas/AckAgent.Common.AttestationSecurityType'
+    AckAgent.Common.ApproverDeviceType:
+      $ref: './e2ee-protocol/common.yaml#/components/schemas/AckAgent.Common.ApproverDeviceType'
+    AckAgent.Common.AnonymousAttestation:
+      $ref: './e2ee-protocol/common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+    AckAgent.Common.KeyPurpose:
+      $ref: './e2ee-protocol/common.yaml#/components/schemas/AckAgent.Common.KeyPurpose'
+    AckAgent.Common.SigningErrorCode:
+      $ref: './e2ee-protocol/common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+    AckAgent.Common.TransactionType:
+      $ref: './e2ee-protocol/common.yaml#/components/schemas/AckAgent.Common.TransactionType'
+
+    # ==========================================================================
+    # Display Types
+    # ==========================================================================
+    GenericDisplaySchema:
+      $ref: './e2ee-protocol/display.yaml#/components/schemas/GenericDisplaySchema'
+    DisplayField:
+      $ref: './e2ee-protocol/display.yaml#/components/schemas/DisplayField'
+    # ==========================================================================
+    # Source Types
+    # ==========================================================================
+    ProcessEntry:
+      $ref: './e2ee-protocol/source.yaml#/components/schemas/ProcessEntry'
+    SourceInfo:
+      $ref: './e2ee-protocol/source.yaml#/components/schemas/SourceInfo'
+
+    # ==========================================================================
+    # Base Types
+    # ==========================================================================
+    BasePayload:
+      $ref: './e2ee-protocol/base.yaml#/components/schemas/BasePayload'
+    SignatureResponse:
+      $ref: './e2ee-protocol/base.yaml#/components/schemas/SignatureResponse'
+
+    # ==========================================================================
+    # SSH Types
+    # ==========================================================================
+    SshAuthPayload:
+      $ref: './e2ee-protocol/ssh.yaml#/components/schemas/SshAuthPayload'
+    SshSignPayload:
+      $ref: './e2ee-protocol/ssh.yaml#/components/schemas/SshSignPayload'
+
+    # ==========================================================================
+    # GPG Types
+    # ==========================================================================
+    GpgSignPayload:
+      $ref: './e2ee-protocol/gpg.yaml#/components/schemas/GpgSignPayload'
+    GpgSignatureResponse:
+      $ref: './e2ee-protocol/gpg.yaml#/components/schemas/GpgSignatureResponse'
+    GpgDecryptPayload:
+      $ref: './e2ee-protocol/gpg.yaml#/components/schemas/GpgDecryptPayload'
+    GpgDecryptResponse:
+      $ref: './e2ee-protocol/gpg.yaml#/components/schemas/GpgDecryptResponse'
+    PkeskData:
+      $ref: './e2ee-protocol/gpg.yaml#/components/schemas/PkeskData'
+
+    # ==========================================================================
+    # Age Types
+    # ==========================================================================
+    AgeUnwrapPayload:
+      $ref: './e2ee-protocol/age.yaml#/components/schemas/AgeUnwrapPayload'
+    AgeUnwrapResponse:
+      $ref: './e2ee-protocol/age.yaml#/components/schemas/AgeUnwrapResponse'
+
+    # ==========================================================================
+    # ECDH Types
+    # ==========================================================================
+    EcdhDerivePayload:
+      $ref: './e2ee-protocol/ecdh.yaml#/components/schemas/EcdhDerivePayload'
+    EcdhDeriveResponse:
+      $ref: './e2ee-protocol/ecdh.yaml#/components/schemas/EcdhDeriveResponse'
+    EcdhKdfParams:
+      $ref: './e2ee-protocol/ecdh.yaml#/components/schemas/EcdhKdfParams'
+
+    # ==========================================================================
+    # Claude Code Types
+    # ==========================================================================
+    ClaudeApprovalPayload:
+      $ref: './e2ee-protocol/claude.yaml#/components/schemas/ClaudeApprovalPayload'
+    ClaudeApprovalResponse:
+      $ref: './e2ee-protocol/claude.yaml#/components/schemas/ClaudeApprovalResponse'
+    ClaudeQuestion:
+      $ref: './e2ee-protocol/claude.yaml#/components/schemas/ClaudeQuestion'
+    ClaudeQuestionOption:
+      $ref: './e2ee-protocol/claude.yaml#/components/schemas/ClaudeQuestionOption'
+    ClaudeQuestionPayload:
+      $ref: './e2ee-protocol/claude.yaml#/components/schemas/ClaudeQuestionPayload'
+    ClaudeQuestionResponse:
+      $ref: './e2ee-protocol/claude.yaml#/components/schemas/ClaudeQuestionResponse'
+    RememberRule:
+      $ref: './e2ee-protocol/claude.yaml#/components/schemas/RememberRule'
+
+    # ==========================================================================
+    # Enrollment Types
+    # ==========================================================================
+    EnrollPayload:
+      $ref: './e2ee-protocol/enroll.yaml#/components/schemas/EnrollPayload'
+    EnrollResponse:
+      $ref: './e2ee-protocol/enroll.yaml#/components/schemas/EnrollResponse'
+
+    # ==========================================================================
+    # PAM Types
+    # ==========================================================================
+    PamAuthPayload:
+      $ref: './e2ee-protocol/pam.yaml#/components/schemas/PamAuthPayload'
+    PamAuthResponse:
+      $ref: './e2ee-protocol/pam.yaml#/components/schemas/PamAuthResponse'
+
+    # ==========================================================================
+    # Web Types
+    # ==========================================================================
+    WebPayload:
+      $ref: './e2ee-protocol/web.yaml#/components/schemas/WebPayload'
+    WebApprovalResponse:
+      $ref: './e2ee-protocol/web.yaml#/components/schemas/WebApprovalResponse'
+    BrowserMetadata:
+      $ref: './e2ee-protocol/web.yaml#/components/schemas/BrowserMetadata'
+
+    # ==========================================================================
+    # Captcha Types
+    # ==========================================================================
+    CaptchaPayload:
+      $ref: './e2ee-protocol/captcha.yaml#/components/schemas/CaptchaPayload'
+    CaptchaResponse:
+      $ref: './e2ee-protocol/captcha.yaml#/components/schemas/CaptchaResponse'
+
+    # ==========================================================================
+    # Custom Types
+    # ==========================================================================
+    CustomPayload:
+      $ref: './e2ee-protocol/custom.yaml#/components/schemas/CustomPayload'
+
+    # ==========================================================================
+    # Metadata Types
+    # ==========================================================================
+    TransactionMetadata:
+      $ref: './e2ee-protocol/metadata.yaml#/components/schemas/TransactionMetadata'
+
+    # ==========================================================================
+    # Union Types (defined inline - these aggregate all payload/response types)
+    # ==========================================================================
+    RequestPayload:
+      anyOf:
+        - $ref: './e2ee-protocol/gpg.yaml#/components/schemas/GpgSignPayload'
+        - $ref: './e2ee-protocol/ssh.yaml#/components/schemas/SshAuthPayload'
+        - $ref: './e2ee-protocol/ssh.yaml#/components/schemas/SshSignPayload'
+        - $ref: './e2ee-protocol/gpg.yaml#/components/schemas/GpgDecryptPayload'
+        - $ref: './e2ee-protocol/age.yaml#/components/schemas/AgeUnwrapPayload'
+        - $ref: './e2ee-protocol/ecdh.yaml#/components/schemas/EcdhDerivePayload'
+        - $ref: './e2ee-protocol/claude.yaml#/components/schemas/ClaudeApprovalPayload'
+        - $ref: './e2ee-protocol/claude.yaml#/components/schemas/ClaudeQuestionPayload'
+        - $ref: './e2ee-protocol/enroll.yaml#/components/schemas/EnrollPayload'
+        - $ref: './e2ee-protocol/custom.yaml#/components/schemas/CustomPayload'
+        - $ref: './e2ee-protocol/web.yaml#/components/schemas/WebPayload'
+        - $ref: './e2ee-protocol/pam.yaml#/components/schemas/PamAuthPayload'
+        - $ref: './e2ee-protocol/captcha.yaml#/components/schemas/CaptchaPayload'
+      description: Any valid request payload type.
+
+    ResponsePayload:
+      anyOf:
+        - $ref: './e2ee-protocol/base.yaml#/components/schemas/SignatureResponse'
+        - $ref: './e2ee-protocol/gpg.yaml#/components/schemas/GpgSignatureResponse'
+        - $ref: './e2ee-protocol/gpg.yaml#/components/schemas/GpgDecryptResponse'
+        - $ref: './e2ee-protocol/age.yaml#/components/schemas/AgeUnwrapResponse'
+        - $ref: './e2ee-protocol/ecdh.yaml#/components/schemas/EcdhDeriveResponse'
+        - $ref: './e2ee-protocol/claude.yaml#/components/schemas/ClaudeApprovalResponse'
+        - $ref: './e2ee-protocol/claude.yaml#/components/schemas/ClaudeQuestionResponse'
+        - $ref: './e2ee-protocol/enroll.yaml#/components/schemas/EnrollResponse'
+        - $ref: './e2ee-protocol/web.yaml#/components/schemas/WebApprovalResponse'
+        - $ref: './e2ee-protocol/pam.yaml#/components/schemas/PamAuthResponse'
+        - $ref: './e2ee-protocol/captcha.yaml#/components/schemas/CaptchaResponse'
+      description: Any valid response payload type.

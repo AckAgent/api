@@ -1,0 +1,476 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Key-Auth Service API
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://ackagent.com/terms
+  description: |-
+    REST API for PAM (Privileged Access Management) key authentication.
+
+    ## Features
+
+    - PAM module authentication via key signatures
+    - PAM key management for organizations
+    - Member device key lookup for PAM verification
+
+    ## Authentication
+
+    PAM token endpoint uses signature-based authentication.
+    PAM key management endpoints require OIDC Bearer token with admin role.
+
+tags:
+  - name: Health
+    description: Service health checks
+  - name: PAM Keys
+    description: PAM key management
+
+paths:
+  /health:
+    get:
+      operationId: Health_check
+      summary: Health check
+      description: Health check
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+      tags:
+        - Health
+      security:
+        - {}
+
+  /health/ready:
+    get:
+      operationId: HealthReady_check
+      summary: Readiness check
+      description: Readiness check - includes database connectivity check
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service unavailable.
+      tags:
+        - Health
+      security:
+        - {}
+
+  /api/v1/organizations/{id}/pam-keys:
+    get:
+      operationId: OrganizationPamKeys_list
+      summary: List PAM keys
+      description: List PAM keys - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListPamKeysResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - PAM Keys
+    post:
+      operationId: OrganizationPamKeys_create
+      summary: Create PAM key
+      description: Create PAM key - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PamKeyInfo'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '409':
+          description: The request conflicts with the current state of the server.
+      tags:
+        - PAM Keys
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePamKeyRequest'
+
+  /api/v1/organizations/{id}/pam-keys/{keyid}:
+    get:
+      operationId: OrganizationPamKeyById_get
+      summary: Get PAM key
+      description: Get PAM key - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: keyid
+          in: path
+          required: true
+          description: Key identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PamKeyInfo'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - PAM Keys
+    delete:
+      operationId: OrganizationPamKeyById_delete
+      summary: Delete PAM key
+      description: Delete PAM key - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: keyid
+          in: path
+          required: true
+          description: Key identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PamKeyActionResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - PAM Keys
+
+  /api/v1/organizations/{id}/pam-keys/{keyid}/revoke:
+    post:
+      operationId: OrganizationPamKeyRevoke_revoke
+      summary: Revoke PAM key
+      description: Revoke PAM key - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: keyid
+          in: path
+          required: true
+          description: Key identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PamKeyActionResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - PAM Keys
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokePamKeyRequest'
+
+  /api/v1/organizations/{id}/members/{email}/approver-keys:
+    get:
+      operationId: OrganizationMemberApproverKeys_get
+      summary: Get member approver keys
+      description: Get member approver keys - used by PAM module for signature verification
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: email
+          in: path
+          required: true
+          description: User email address
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDeviceKeysResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - PAM Keys
+
+  /api/v1/organizations/{id}/members/approver-keys/bulk:
+    post:
+      operationId: OrganizationMemberApproverKeysBulk_get
+      summary: Bulk get member approver keys
+      description: Bulk get member approver keys - fetch keys for multiple members
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeviceKeysResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - PAM Keys
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkDeviceKeysRequest'
+
+security:
+  - BearerAuth: []
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+      description: Health check response
+
+    BulkDeviceKeysRequest:
+      type: object
+      required:
+        - emails
+      properties:
+        emails:
+          type: array
+          items:
+            type: string
+      description: Bulk device keys request
+
+    BulkDeviceKeysResponse:
+      type: object
+      required:
+        - users
+      properties:
+        users:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/DeviceKeyInfo'
+          description: Map of email to device keys
+      description: Bulk device keys response
+
+    CreatePamKeyRequest:
+      type: object
+      required:
+        - name
+        - signingPublicKeyHex
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        signingPublicKeyHex:
+          type: string
+          description: "Lowercase hex-encoded ECDSA P-256 signing public key for PAM authentication (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed P-256))"
+      description: Create PAM key request
+
+    DeviceKeyInfo:
+      type: object
+      required:
+        - approverId
+        - authPublicKeyHex
+        - encryptionPublicKeyHex
+      properties:
+        approverId:
+          type: string
+          description: Approver device UUID
+        authPublicKeyHex:
+          type: string
+          description: "Lowercase hex-encoded P-256 ECDSA auth public key of the device (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed P-256))"
+        encryptionPublicKeyHex:
+          type: string
+          description: "Lowercase hex-encoded P-256 ECDH encryption public key for E2E encryption (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed P-256))"
+        deviceName:
+          type: string
+        attestationType:
+          type: string
+          enum:
+            - app_attest
+            - play_integrity
+            - software
+          description: Type of attestation (app_attest for iOS App Attest, play_integrity for Android Play Integrity, software for non-attested keys).
+        securityLevel:
+          type: string
+      description: Device key information for PAM verification
+
+    ListPamKeysResponse:
+      type: object
+      required:
+        - pamKeys
+      properties:
+        pamKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/PamKeyInfo'
+      description: List PAM keys response
+
+    MemberDeviceKeysResponse:
+      type: object
+      required:
+        - deviceKeys
+      properties:
+        deviceKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceKeyInfo'
+      description: Member device keys response
+
+    PamKeyActionResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+      description: PAM key action response
+
+    PamKeyInfo:
+      type: object
+      required:
+        - id
+        - name
+        - signingPublicKeyHex
+        - status
+        - createdAt
+        - createdBy
+        - useCount
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        signingPublicKeyHex:
+          type: string
+          description: "Lowercase hex-encoded ECDSA P-256 signing public key for PAM authentication (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed P-256))"
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        lastUsedAt:
+          type: string
+          format: date-time
+        useCount:
+          type: integer
+          format: int32
+        revokedAt:
+          type: string
+          format: date-time
+      description: PAM key information
+
+    RevokePamKeyRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      description: Revoke PAM key request
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth2 access token issued by the OIDC service.
+
+servers:
+  - url: http://127.0.0.1:4455
+    description: Local development
+  - url: https://keyauth.ackagent.com
+    description: Production

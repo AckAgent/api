@@ -1,0 +1,36 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Custom Types
+  version: '1.0'
+  description: Custom payload types for application-defined signing requests.
+paths: {}
+components:
+  schemas:
+    CustomPayload:
+      type: object
+      required:
+        - type
+        - rawData
+        - display
+      properties:
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - custom
+          example: custom
+        rawData:
+          type: string
+          format: byte
+          description: >-
+            Base64-encoded raw data to sign (preimage). The approver computes
+            the SHA-256 digest and signs it.
+          example: Y3VzdG9tIGRhdGE=
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Required display schema for custom payloads.
+      description: Custom signing request with application-defined data.

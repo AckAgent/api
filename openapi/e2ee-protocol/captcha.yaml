@@ -1,0 +1,67 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Captcha Types
+  version: '1.0'
+  description: Captcha verification payload types for NaughtBot.
+paths: {}
+components:
+  schemas:
+    CaptchaPayload:
+      type: object
+      required:
+        - type
+        - domain
+        - nonce
+        - timestamp
+      properties:
+        type:
+          type: string
+          enum:
+            - captcha
+          example: captcha
+        domain:
+          type: string
+          description: Website domain requesting captcha verification.
+          example: example.com
+        nonce:
+          type: string
+          description: Unique nonce for replay protection.
+          example: abc123def456
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp of request creation (milliseconds).
+          example: 1705320000000
+      description: Captcha verification request payload.
+
+    CaptchaResponse:
+      type: object
+      required:
+        - approved
+      properties:
+        approved:
+          type: boolean
+          description: Whether the user approved the captcha.
+          example: true
+        plaintextHash:
+          type: string
+          description: >-
+            SHA-256 digest of the plaintext preimage, computed by the approver
+            (format: 'sha256:<hex>').
+          example: sha256:abc123...
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if verification failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User declined the request
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+          description: >-
+            Anonymous attestation proving the response came from a genuine device
+            with a valid credential. Present for all approval responses. Inside
+            the encrypted blob so the relay stays blind.
+      description: Captcha verification response.

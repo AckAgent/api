@@ -1,0 +1,105 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Web Types
+  version: '1.0'
+  description: Web approval payload types for browser-based authentication.
+paths: {}
+components:
+  schemas:
+    WebPayload:
+      type: object
+      required:
+        - type
+        - title
+        - plaintext
+        - browserMetadata
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        type:
+          type: string
+          enum:
+            - web
+          example: web
+        title:
+          type: string
+          description: Title for the approval request.
+          example: Confirm Payment
+        description:
+          type: string
+          description: Description of what is being approved.
+          example: Authorize payment of $100 to Example Inc.
+        plaintext:
+          type: string
+          description: Plaintext content to approve.
+          example: Payment authorization for $100
+        browserMetadata:
+          allOf:
+            - $ref: '#/components/schemas/BrowserMetadata'
+          description: Browser metadata from the web request.
+      description: Web approval request payload.
+
+    WebApprovalResponse:
+      type: object
+      properties:
+        signature:
+          type: string
+          format: byte
+          description: Base64-encoded ECDSA signature over the SHA-256 digest of the plaintext preimage.
+          example: c2lnbmF0dXJl
+        plaintextHash:
+          type: string
+          description: >-
+            SHA-256 digest of the plaintext preimage, computed by the approver
+            (format: 'sha256:<hex>').
+          example: sha256:abc123...
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if approval failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User rejected the request
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+          description: >-
+            Anonymous attestation proving the response came from a genuine device.
+            Present for all approval responses. Inside the encrypted blob.
+      description: Web approval response with signature.
+
+    BrowserMetadata:
+      type: object
+      required:
+        - url
+        - origin
+        - timestamp
+      properties:
+        url:
+          type: string
+          description: Full URL of the page initiating the request.
+          example: https://app.example.com/sign
+        origin:
+          type: string
+          description: Origin of the page (protocol + host).
+          example: https://app.example.com
+        pageTitle:
+          type: string
+          description: Title of the web page.
+          example: Sign Document - Example App
+        userAgent:
+          type: string
+          description: Browser user agent string.
+          example: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
+        referrer:
+          type: string
+          description: Referrer URL if available.
+          example: https://app.example.com/documents
+        timestamp:
+          type: string
+          description: ISO 8601 timestamp when metadata was collected.
+          example: '2024-01-15T12:00:00Z'
+      description: Browser metadata captured for web approval requests.

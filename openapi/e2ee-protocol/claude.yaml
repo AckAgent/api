@@ -1,0 +1,234 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Claude Code Types
+  version: '1.0'
+  description: Claude Code approval and question payload types.
+paths: {}
+components:
+  schemas:
+    ClaudeApprovalPayload:
+      type: object
+      required:
+        - type
+        - toolName
+        - toolInputFormatted
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - claude_approval
+          example: claude_approval
+        toolName:
+          type: string
+          description: Name of the Claude Code tool (e.g., 'Bash', 'Write', 'Edit').
+          example: Bash
+        toolInputFormatted:
+          type: string
+          description: Formatted tool input for display to the user.
+          example: rm -rf /tmp/test
+        allowsModification:
+          type: boolean
+          description: Whether the user can modify the input before approval.
+          example: true
+        sessionId:
+          type: string
+          description: Claude Code session identifier.
+          example: session_abc123
+        contextPreimage:
+          type: string
+          format: byte
+          description: >-
+            Base64-encoded canonical JSON of the approval context (session_id, tool_name,
+            tool_input, timestamp). The approver computes SHA-256 of this preimage and signs
+            the resulting digest.
+          example: eyJzZXNzaW9uX2lkIjoic2Vzc2lvbl9hYmMxMjMifQ==
+        actionTitle:
+          type: string
+          description: Title for the approval prompt.
+          example: Allow command?
+        actionDescription:
+          type: string
+          description: Description of what the action will do.
+          example: Execute shell command in your terminal
+      description: Claude Code tool approval request payload.
+
+    ClaudeApprovalResponse:
+      type: object
+      required:
+        - decision
+        - contextSignature
+      properties:
+        decision:
+          type: string
+          enum:
+            - allow
+            - allow_always
+            - deny
+          description: User's approval decision.
+          example: allow
+        contextSignature:
+          type: string
+          format: byte
+          description: Base64-encoded ECDSA signature over the SHA-256 digest of contextPreimage.
+          example: Y29udGV4dCBzaWduYXR1cmU=
+        updatedInput:
+          type: object
+          additionalProperties: true
+          description: Modified input if the user edited it before approval.
+        rememberRule:
+          allOf:
+            - $ref: '#/components/schemas/RememberRule'
+          description: Rule to remember for allow_always decisions.
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if the operation failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User rejected the request
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+          description: >-
+            Anonymous attestation proving the response came from a genuine device.
+            Present for all approval responses. Inside the encrypted blob.
+      description: Claude Code approval response with decision and signature.
+
+    ClaudeQuestion:
+      type: object
+      required:
+        - id
+        - question
+        - options
+      properties:
+        id:
+          type: string
+          description: Unique identifier for this question.
+          example: q_abc123
+        question:
+          type: string
+          description: Question text to display to the user.
+          example: Which database should I use?
+        header:
+          type: string
+          description: Header label for the question.
+          example: Database Choice
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClaudeQuestionOption'
+          description: Available answer options.
+        required:
+          type: boolean
+          description: Whether an answer is required.
+          example: true
+        multiSelect:
+          type: boolean
+          description: Whether multiple options can be selected.
+          example: false
+      description: A question for the user to answer via the mobile app.
+
+    ClaudeQuestionOption:
+      type: object
+      required:
+        - id
+        - label
+      properties:
+        id:
+          type: string
+          description: Unique identifier for this option.
+          example: opt_postgres
+        label:
+          type: string
+          description: Display label for the option.
+          example: PostgreSQL
+        description:
+          type: string
+          description: Additional description for the option.
+          example: Recommended for production workloads
+      description: A selectable option for a Claude question.
+
+    ClaudeQuestionPayload:
+      type: object
+      required:
+        - type
+        - questions
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - claude_question
+          example: claude_question
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClaudeQuestion'
+          description: Array of questions to ask the user.
+        sessionId:
+          type: string
+          description: Claude Code session identifier.
+          example: session_abc123
+      description: Claude Code question request payload.
+
+    ClaudeQuestionResponse:
+      type: object
+      properties:
+        answersBytes:
+          type: string
+          format: byte
+          description: Base64-encoded JSON of the user's answers.
+          example: eyJxX2FiYzEyMyI6Im9wdF9wb3N0Z3JlcyJ9
+        answersSignature:
+          type: string
+          format: byte
+          description: >-
+            Base64-encoded ECDSA signature over the SHA-256 digest of answersBytes.
+            The approver computes the digest from the canonical JSON answers before signing.
+          example: YW5zd2VycyBzaWduYXR1cmU=
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if the operation failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User rejected the request
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+          description: >-
+            Anonymous attestation proving the response came from a genuine device.
+            Present for all approval responses. Inside the encrypted blob.
+      description: Claude Code question response with signed answers.
+
+    RememberRule:
+      type: object
+      required:
+        - tool
+      properties:
+        tool:
+          type: string
+          description: Tool name to remember.
+          example: Bash
+        pattern:
+          type: string
+          description: Pattern to match for auto-approval.
+          example: npm test
+      description: Rule for remembering allow_always decisions.

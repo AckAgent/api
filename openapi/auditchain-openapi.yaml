@@ -1,0 +1,760 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Audit Chain Types
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://ackagent.com/terms
+  description: |-
+    Type definitions for the AckAgent audit chain. These types are used for code generation
+    across all platforms and define the structure of tamper-evident audit logs.
+
+    The audit chain provides cryptographic proof of all signing requests and approvals,
+    enabling organizations to verify the integrity of their approval history.
+servers:
+  - url: https://api.ackagent.com
+    description: Production API (types only, no endpoints)
+tags: []
+paths: {}
+components:
+  schemas:
+    AuditAttestationType:
+      type: string
+      enum:
+        - app_attest
+        - play_integrity
+        - software
+      description: Type of attestation used to verify device authenticity. app_attest for iOS App Attest, play_integrity for Android Play Integrity, software for non-attested (software-only) keys.
+      example: app_attest
+    AuditEntryType:
+      type: string
+      enum:
+        - response
+        - offline_approval
+        - request_created
+        - request_resolved
+      description: Type of event recorded in the audit chain.
+      example: response
+    AuditOutcome:
+      type: string
+      enum:
+        - responded
+        - timeout
+        - rejected
+      description: Final outcome of a signing request resolution.
+      example: responded
+    AuditSyncEntry:
+      type: object
+      required:
+        - entryId
+        - sequence
+        - timestamp
+        - entryHash
+        - entryType
+        - encryptedPayloadHash
+        - plaintextHash
+        - deviceSignature
+        - auditSigningPublicKeyHex
+      properties:
+        entryId:
+          type: string
+          description: Unique identifier for this audit entry.
+          example: entry_abc123
+        sequence:
+          type: integer
+          format: int64
+          description: Monotonically increasing sequence number within the device chain.
+          example: 42
+        timestamp:
+          type: string
+          description: ISO 8601 timestamp when the entry was created on the device.
+          example: '2024-01-15T12:00:00Z'
+        entryHash:
+          type: string
+          description: SHA256 hash of the entry for integrity verification.
+          example: abc123def456...
+        prevHash:
+          type: string
+          description: Hash of the previous entry, creating a cryptographic chain.
+          example: xyz789ghi012...
+        entryType:
+          type: string
+          description: Type of audit event recorded.
+          example: response
+        requestHash:
+          type: string
+          description: Hash of the associated signing request.
+          example: req_hash_123...
+        challengeHash:
+          type: string
+          description: Hash of the challenge data that was signed.
+          example: challenge_hash_456...
+        challengeContext:
+          type: string
+          description: Context information for the challenge (e.g., domain, application).
+          example: github.com
+        encryptedPayloadHash:
+          type: string
+          description: Hash of the encrypted payload for verification without decryption.
+          example: enc_hash_789...
+        plaintextHash:
+          type: string
+          description: Hash of the plaintext known only to the device.
+          example: plain_hash_012...
+        deviceSignature:
+          type: string
+          description: Base64-encoded ECDSA P-256 signature over the entry using the device's audit signing key.
+          example: c2lnbmF0dXJl
+        auditSigningPublicKeyHex:
+          type: string
+          description: "Lowercase hex-encoded P-256 ECDSA public key of the purpose-scoped audit signing key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed P-256))."
+          example: cHVibGljS2V5
+      description: Single entry synchronized from a device's local audit chain to the server.
+    AuditSyncRequest:
+      type: object
+      required:
+        - deviceId
+        - orgId
+        - chainTip
+        - entries
+      properties:
+        deviceId:
+          type: string
+          description: Unique identifier of the device submitting entries.
+          example: dev_abc123
+        orgId:
+          type: string
+          description: Organization ID for enterprise audit aggregation.
+          example: org_xyz789
+        chainTip:
+          type: string
+          description: Hash of the last entry known by the server for incremental sync.
+          example: tip_hash_123...
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditSyncEntry'
+          description: New audit entries to synchronize.
+        attestation:
+          type: string
+          description: Base64-encoded device attestation for authenticity.
+          example: YXR0ZXN0YXRpb24=
+        attestationType:
+          allOf:
+            - $ref: '#/components/schemas/AuditAttestationType'
+          description: Type of attestation (app_attest for iOS App Attest, play_integrity for Android Play Integrity, software for non-attested keys).
+          example: app_attest
+      description: Request to synchronize device audit entries to the server.
+    AuditSyncResult:
+      type: object
+      required:
+        - entriesSynced
+        - errors
+        - serverReceivedAt
+      properties:
+        entriesSynced:
+          type: integer
+          format: int32
+          description: Number of entries successfully synchronized.
+          example: 5
+        errors:
+          type: array
+          items:
+            type: string
+          description: Error messages for entries that failed to sync.
+          example:
+            - 'entry_003: invalid signature'
+        lastSyncedSequence:
+          type: integer
+          format: int64
+          description: Sequence number of the last successfully synced entry.
+          example: 47
+        serverReceivedAt:
+          type: string
+          format: date-time
+          description: Server timestamp when the sync was processed.
+          example: '2024-01-15T12:00:00Z'
+      description: Result of an audit chain synchronization operation.
+    ChainExport:
+      type: object
+      required:
+        - orgId
+        - exportedAt
+        - fromTime
+        - toTime
+        - deviceEntries
+        - requestEntries
+        - merkleTrees
+      properties:
+        orgId:
+          type: string
+          description: Organization ID for the exported data.
+          example: org_xyz789
+        exportedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the export was created.
+          example: '2024-01-15T12:00:00Z'
+        fromTime:
+          type: string
+          format: date-time
+          description: Start of the time range included in the export.
+          example: '2024-01-01T00:00:00Z'
+        toTime:
+          type: string
+          format: date-time
+          description: End of the time range included in the export.
+          example: '2024-01-31T23:59:59Z'
+        deviceEntries:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceChainEntry'
+          description: All device chain entries in the time range.
+        requestEntries:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequestChainEntry'
+          description: All request chain entries in the time range.
+        merkleTrees:
+          type: array
+          items:
+            $ref: '#/components/schemas/MerkleTree'
+          description: Merkle trees created during the time range.
+        commitments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerCommitment'
+          description: Customer commitments published during the time range.
+      description: Complete export of audit chain data for offline verification.
+    ChainSummary:
+      type: object
+      required:
+        - orgId
+        - deviceEntryCount
+        - deviceCount
+        - requestEntryCount
+        - merkleTreeCount
+      properties:
+        orgId:
+          type: string
+          description: Organization ID for the summary.
+          example: org_xyz789
+        deviceEntryCount:
+          type: integer
+          format: int64
+          description: Total number of device chain entries.
+          example: 1234
+        deviceCount:
+          type: integer
+          format: int64
+          description: Number of unique devices with entries.
+          example: 15
+        requestEntryCount:
+          type: integer
+          format: int64
+          description: Total number of request chain entries.
+          example: 567
+        merkleTreeCount:
+          type: integer
+          format: int64
+          description: Number of Merkle trees created.
+          example: 10
+        lastDeviceEntryAt:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent device entry.
+          example: '2024-01-15T12:00:00Z'
+        lastRequestEntryAt:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent request entry.
+          example: '2024-01-15T11:55:00Z'
+        lastMerkleTreeAt:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent Merkle tree.
+          example: '2024-01-15T12:00:00Z'
+      description: Summary statistics for an organization's audit chain.
+    CommitmentWebhookPayload:
+      type: object
+      required:
+        - commitment
+        - inclusionProofUrl
+      properties:
+        commitment:
+          allOf:
+            - $ref: '#/components/schemas/CustomerCommitment'
+          description: The customer commitment that was published.
+        inclusionProofUrl:
+          type: string
+          description: URL to fetch the inclusion proof for this commitment.
+          example: https://api.ackagent.com/v1/proofs/tree_abc123
+      description: Webhook payload sent when a new commitment is published.
+    CustomerCommitment:
+      type: object
+      required:
+        - treeId
+        - orgId
+        - merkleRoot
+        - treeSequence
+        - timestamp
+        - deviceCount
+        - entryCount
+      properties:
+        treeId:
+          type: string
+          description: Unique identifier for the Merkle tree.
+          example: tree_abc123
+        orgId:
+          type: string
+          description: Organization ID for this commitment.
+          example: org_xyz789
+        merkleRoot:
+          type: string
+          format: byte
+          description: Base64-encoded Merkle root hash.
+          example: bWVya2xlIHJvb3Q=
+        treeSequence:
+          type: integer
+          format: int64
+          description: Sequence number of this tree for the organization.
+          example: 42
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the commitment was created.
+          example: '2024-01-15T12:00:00Z'
+        deviceCount:
+          type: integer
+          format: int32
+          description: Number of devices included in this tree.
+          example: 15
+        entryCount:
+          type: integer
+          format: int64
+          description: Total number of entries in this tree.
+          example: 1234
+      description: Commitment to the current state of an organization's audit chain.
+    DeviceChainEntry:
+      type: object
+      required:
+        - entryId
+        - orgId
+        - deviceId
+        - sequence
+        - timestamp
+        - entryHash
+        - entryType
+        - encryptedPayloadHash
+        - plaintextHash
+        - deviceSignature
+      properties:
+        entryId:
+          type: string
+          description: Unique identifier for this entry.
+          example: entry_abc123
+        orgId:
+          type: string
+          description: Organization ID for enterprise aggregation.
+          example: org_xyz789
+        deviceId:
+          type: string
+          description: Device that created this entry.
+          example: dev_abc123
+        sequence:
+          type: integer
+          format: int64
+          description: Sequence number within the device chain.
+          example: 42
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the entry was created.
+          example: '2024-01-15T12:00:00Z'
+        entryHash:
+          type: string
+          format: byte
+          description: Base64-encoded SHA256 hash of the entry.
+          example: ZW50cnkgaGFzaA==
+        prevHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the previous entry.
+          example: cHJldmlvdXMgaGFzaA==
+        entryType:
+          allOf:
+            - $ref: '#/components/schemas/AuditEntryType'
+          description: Type of audit event recorded.
+        requestHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the associated request.
+          example: cmVxdWVzdCBoYXNo
+        challengeHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the signing challenge.
+          example: Y2hhbGxlbmdlIGhhc2g=
+        challengeContext:
+          type: string
+          description: Context for the challenge (domain, application).
+          example: github.com
+        encryptedPayloadHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the encrypted payload.
+          example: ZW5jcnlwdGVkIGhhc2g=
+        plaintextHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the plaintext.
+          example: cGxhaW50ZXh0IGhhc2g=
+        deviceSignature:
+          type: string
+          format: byte
+          description: Base64-encoded ECDSA P-256 signature by the device's audit signing key.
+          example: c2lnbmF0dXJl
+        auditSigningPublicKeyHex:
+          type: string
+          description: "Lowercase hex-encoded P-256 ECDSA public key of the purpose-scoped audit signing key (66 hex chars, 33 bytes: 0x02/0x03 || X (compressed P-256))."
+          example: "02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+        attestationData:
+          type: string
+          format: byte
+          description: Base64-encoded device attestation.
+          example: YXR0ZXN0YXRpb24=
+        attestationType:
+          allOf:
+            - $ref: '#/components/schemas/AuditAttestationType'
+          description: Type of attestation used (app_attest, play_integrity, or software for non-attested keys).
+        syncedAt:
+          type: string
+          format: date-time
+          description: Timestamp when synced to server.
+          example: '2024-01-15T12:00:01Z'
+        syncBatchId:
+          type: string
+          description: Batch ID for the sync operation.
+          example: batch_abc123
+      description: Single entry in a device's audit chain with cryptographic signatures.
+    DeviceChainTip:
+      type: object
+      required:
+        - deviceId
+        - hash
+        - sequence
+      properties:
+        deviceId:
+          type: string
+          description: Device ID for this chain tip.
+          example: dev_abc123
+        hash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the latest entry.
+          example: dGlwIGhhc2g=
+        sequence:
+          type: integer
+          format: int64
+          description: Sequence number of the latest entry.
+          example: 42
+        timestamp:
+          type: string
+          description: Timestamp of the latest entry.
+          example: '2024-01-15T12:00:00Z'
+      description: Latest entry reference for a device chain in a Merkle tree.
+    InclusionProof:
+      type: object
+      required:
+        - entryHash
+        - treeId
+        - merkleRoot
+        - leafIndex
+        - treeSize
+        - siblingHashes
+      properties:
+        entryHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the entry being proven.
+          example: ZW50cnkgaGFzaA==
+        treeId:
+          type: string
+          description: Merkle tree containing the entry.
+          example: tree_abc123
+        merkleRoot:
+          type: string
+          format: byte
+          description: Base64-encoded Merkle root.
+          example: bWVya2xlIHJvb3Q=
+        leafIndex:
+          type: integer
+          format: int64
+          description: Index of the entry in the tree.
+          example: 42
+        treeSize:
+          type: integer
+          format: int64
+          description: Total number of leaves in the tree.
+          example: 100
+        siblingHashes:
+          type: array
+          items:
+            type: string
+            format: byte
+          description: Base64-encoded sibling hashes for proof verification.
+          example:
+            - c2libGluZyAxCg==
+            - c2libGluZyAyCg==
+      description: Cryptographic proof that an entry is included in a Merkle tree.
+    MerkleProof:
+      type: object
+      required:
+        - leaves
+        - depth
+      properties:
+        leaves:
+          type: array
+          items:
+            type: string
+            format: byte
+          description: Base64-encoded leaf hashes.
+          example:
+            - bGVhZiAx
+            - bGVhZiAy
+        depth:
+          type: integer
+          format: int32
+          description: Depth of the Merkle tree.
+          example: 8
+      description: Raw Merkle tree proof data for reconstruction.
+    MerkleTree:
+      type: object
+      required:
+        - treeId
+        - orgId
+        - sequence
+        - timestamp
+        - requestChainTipHash
+        - requestChainTipSequence
+        - deviceChainTips
+        - merkleRoot
+      properties:
+        treeId:
+          type: string
+          description: Unique identifier for this tree.
+          example: tree_abc123
+        orgId:
+          type: string
+          description: Organization ID for this tree.
+          example: org_xyz789
+        sequence:
+          type: integer
+          format: int64
+          description: Sequence number for this tree.
+          example: 42
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the tree was created.
+          example: '2024-01-15T12:00:00Z'
+        prevRoot:
+          type: string
+          format: byte
+          description: Base64-encoded previous Merkle root for chaining.
+          example: cHJldmlvdXMgcm9vdA==
+        requestChainTipHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the request chain tip.
+          example: cmVxdWVzdCB0aXA=
+        requestChainTipSequence:
+          type: integer
+          format: int64
+          description: Sequence of the request chain tip.
+          example: 100
+        deviceChainTips:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceChainTip'
+          description: Chain tips for all devices in this tree.
+        merkleRoot:
+          type: string
+          format: byte
+          description: Base64-encoded Merkle root hash.
+          example: bWVya2xlIHJvb3Q=
+        merkleProofData:
+          allOf:
+            - $ref: '#/components/schemas/MerkleProof'
+          description: Proof data for tree reconstruction.
+        customerWebhookSentAt:
+          type: string
+          format: date-time
+          description: Timestamp when webhook was sent to customer.
+          example: '2024-01-15T12:00:01Z'
+        totalEntryCount:
+          type: integer
+          format: int64
+          description: Total entries included in this tree.
+          example: 1234
+      description: Merkle tree that rolls up device and request chains for verification.
+    RequestChainEntry:
+      type: object
+      required:
+        - entryId
+        - orgId
+        - sequence
+        - timestamp
+        - entryHash
+        - entryType
+      properties:
+        entryId:
+          type: string
+          description: Unique identifier for this entry.
+          example: entry_req123
+        orgId:
+          type: string
+          description: Organization ID for this entry.
+          example: org_xyz789
+        sequence:
+          type: integer
+          format: int64
+          description: Sequence number in the request chain.
+          example: 100
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the entry was created.
+          example: '2024-01-15T12:00:00Z'
+        entryHash:
+          type: string
+          format: byte
+          description: Base64-encoded SHA256 hash of the entry.
+          example: ZW50cnkgaGFzaA==
+        prevHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the previous entry.
+          example: cHJldmlvdXMgaGFzaA==
+        entryType:
+          allOf:
+            - $ref: '#/components/schemas/AuditEntryType'
+          description: Type of request event recorded.
+        requestId:
+          type: string
+          description: ID of the signing request.
+          example: req_xyz789
+        requesterId:
+          type: string
+          description: ID of the requester.
+          example: rqr_abc123
+        requesterContext:
+          allOf:
+            - $ref: '#/components/schemas/RequesterContext'
+          description: HTTP context from the requester.
+        signingPublicKeyHex:
+          type: string
+          description: Lowercase hex-encoded public key of the key used for signing.
+          example: a1b2c3d4e5f6...
+        encryptedPayloadHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the encrypted payload.
+          example: ZW5jcnlwdGVkIGhhc2g=
+        plaintextHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the plaintext.
+          example: cGxhaW50ZXh0IGhhc2g=
+        expiresAt:
+          type: string
+          format: date-time
+          description: When the request expired.
+          example: '2024-01-15T12:05:00Z'
+        requestEntryHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash linking to request creation entry.
+          example: cmVxdWVzdCBlbnRyeQ==
+        outcome:
+          allOf:
+            - $ref: '#/components/schemas/AuditOutcome'
+          description: Final outcome of the request.
+        winningDeviceId:
+          type: string
+          description: Device that responded first (for resolution entries).
+          example: dev_abc123
+        winningDeviceEntryHash:
+          type: string
+          format: byte
+          description: Base64-encoded hash of the winning device entry.
+          example: d2lubmluZyBoYXNo
+      description: Entry in the request chain tracking signing request lifecycle.
+    RequesterContext:
+      type: object
+      properties:
+        clientIp:
+          type: string
+          description: IP address of the requester client.
+          example: '192.168.1.100'
+        userAgent:
+          type: string
+          description: User-Agent header from the request.
+          example: AckAgent CLI/1.0.0
+        origin:
+          type: string
+          description: Origin header for web requests.
+          example: https://app.example.com
+      description: Sanitized HTTP context from the signing requester.
+    VerificationError:
+      type: object
+      required:
+        - errorType
+        - description
+      properties:
+        entryId:
+          type: string
+          description: Entry ID where the error occurred.
+          example: entry_abc123
+        sequence:
+          type: integer
+          format: int64
+          description: Sequence number of the problematic entry.
+          example: 42
+        errorType:
+          type: string
+          description: Type of verification failure.
+          example: signature_invalid
+        description:
+          type: string
+          description: Human-readable error description.
+          example: Device signature does not match entry hash
+      description: Details of a verification failure in the audit chain.
+    VerificationResult:
+      type: object
+      required:
+        - valid
+        - entriesCount
+      properties:
+        valid:
+          type: boolean
+          description: Whether the chain passed all verification checks.
+          example: true
+        entriesCount:
+          type: integer
+          format: int64
+          description: Number of entries that were verified.
+          example: 1234
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerificationError'
+          description: List of verification errors if invalid.
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Non-fatal issues found during verification.
+          example:
+            - Gap detected between entries 42 and 44
+      description: Result of verifying an audit chain's integrity.

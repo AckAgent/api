@@ -1,0 +1,134 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - PAM Types
+  version: '1.0'
+  description: PAM authentication payload types.
+paths: {}
+components:
+  schemas:
+    PamAuthPayload:
+      type: object
+      required:
+        - type
+        - localUsername
+        - ackagentUser
+        - pamService
+        - timestamp
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - pam_auth
+          example: pam_auth
+        localUsername:
+          type: string
+          description: Local Unix username being authenticated.
+          example: admin
+        ackagentUser:
+          type: string
+          description: AckAgent user email for verification.
+          example: user@example.com
+        pamService:
+          type: string
+          description: PAM service name (e.g., sudo, sshd).
+          example: sudo
+        remoteHost:
+          type: string
+          description: Remote host IP for SSH sessions.
+          example: '192.168.1.100'
+        tty:
+          type: string
+          description: TTY device.
+          example: /dev/pts/0
+        osVersion:
+          type: string
+          description: OS version of the host.
+          example: Ubuntu 22.04
+        sshClient:
+          type: string
+          description: SSH client info from environment.
+          example: 192.168.1.50 54321 22
+        sshConnection:
+          type: string
+          description: SSH connection info from environment.
+          example: 192.168.1.50 54321 192.168.1.100 22
+        sshOriginalCommand:
+          type: string
+          description: SSH original command if any.
+          example: git-upload-pack '/repo.git'
+        sshAuthSockPresent:
+          type: boolean
+          description: Whether SSH_AUTH_SOCK is present.
+          example: true
+        sudoUser:
+          type: string
+          description: User who invoked sudo.
+          example: developer
+        sudoCommand:
+          type: string
+          description: Command being run via sudo.
+          example: /usr/bin/apt update
+        challenge:
+          type: string
+          description: Challenge code for offline verification.
+          example: ABC123
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp of the request.
+          example: 1705320000
+      description: PAM authentication request payload.
+
+    PamAuthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - approved
+            - rejected
+          description: Approval decision.
+          example: approved
+        responseCode:
+          type: string
+          description: Response code for offline verification.
+          example: XYZ789
+        signature:
+          type: string
+          format: byte
+          description: Base64-encoded device signature.
+          example: c2lnbmF0dXJl
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp of the response.
+          example: 1705320001
+        authPublicKeyHex:
+          type: string
+          description: Lowercase hex-encoded auth public key of the responding device (66 hex chars for P-256 33-byte key, or 64 hex chars for Ed25519 32-byte key).
+          example: a1b2c3d4e5f6...
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if authentication failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User rejected the request
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+          description: >-
+            Anonymous attestation proving the response came from a genuine device.
+            Present for all approval responses. Inside the encrypted blob.
+      description: PAM authentication response.

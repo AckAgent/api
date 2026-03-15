@@ -1,0 +1,154 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - GPG Types
+  version: '1.0'
+  description: GPG signing and decryption payload types.
+paths: {}
+components:
+  schemas:
+    GpgSignPayload:
+      type: object
+      required:
+        - type
+        - rawData
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - gpg_sign
+          description: Request type identifier.
+          example: gpg_sign
+        rawData:
+          type: string
+          format: byte
+          description: >-
+            Base64-encoded raw data to sign (preimage). The approver builds the
+            OpenPGP hash input from this preimage and signs the resulting digest.
+          example: cmF3IGRhdGE=
+      description: GPG signing request payload.
+
+    GpgSignatureResponse:
+      type: object
+      properties:
+        armoredSignature:
+          type: string
+          description: ASCII-armored OpenPGP signature.
+          example: '-----BEGIN PGP SIGNATURE-----...'
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if signing failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User rejected the request
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+          description: >-
+            Anonymous attestation proving the response came from a genuine device.
+            Present for all approval responses. Inside the encrypted blob.
+      description: GPG signature response with armored signature.
+
+    GpgDecryptPayload:
+      type: object
+      required:
+        - type
+        - encryptedData
+      properties:
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information.
+        type:
+          type: string
+          enum:
+            - gpg_decrypt
+          example: gpg_decrypt
+        encryptedData:
+          type: string
+          format: byte
+          description: Base64-encoded encrypted data to decrypt.
+          example: ZW5jcnlwdGVkIGRhdGE=
+        pkesk:
+          allOf:
+            - $ref: '#/components/schemas/PkeskData'
+          description: Public Key Encrypted Session Key data for decryption.
+      description: GPG decryption request payload.
+
+    GpgDecryptResponse:
+      type: object
+      properties:
+        sessionKey:
+          type: string
+          format: byte
+          description: Base64-encoded unwrapped session key.
+          example: c2Vzc2lvbiBrZXk=
+        algorithm:
+          type: integer
+          format: int32
+          description: OpenPGP symmetric algorithm ID.
+          example: 9
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if decryption failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User rejected the request
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+          description: >-
+            Anonymous attestation proving the response came from a genuine device.
+            Present for all approval responses. Inside the encrypted blob.
+      description: GPG decryption response with session key.
+
+    PkeskData:
+      type: object
+      required:
+        - version
+        - keyId
+        - algorithm
+        - ephemeralPoint
+        - wrappedKey
+      properties:
+        version:
+          type: integer
+          format: int32
+          description: PKESK packet version (typically 3).
+          example: 3
+        keyId:
+          type: string
+          format: byte
+          description: Base64-encoded 8-byte recipient key ID.
+          example: a2V5X2lkMTIz
+        algorithm:
+          type: integer
+          format: int32
+          description: OpenPGP public key algorithm (18 = ECDH).
+          example: 18
+        ephemeralPoint:
+          type: string
+          format: byte
+          description: Base64-encoded ephemeral ECDH public point (33 bytes compressed).
+          example: ZXBoZW1lcmFsX3BvaW50
+        wrappedKey:
+          type: string
+          format: byte
+          description: Base64-encoded AES-wrapped session key.
+          example: d3JhcHBlZF9rZXk=
+      description: Public Key Encrypted Session Key data from OpenPGP PKESK packet.

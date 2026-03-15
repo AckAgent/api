@@ -1,0 +1,66 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Base Types
+  version: '1.0'
+  description: Base payload and response types shared across protocol components.
+paths: {}
+components:
+  schemas:
+    BasePayload:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.TransactionType'
+          description: Type of request.
+        display:
+          allOf:
+            - $ref: './display.yaml#/components/schemas/GenericDisplaySchema'
+          description: Display metadata for the approval UI.
+        sourceInfo:
+          allOf:
+            - $ref: './source.yaml#/components/schemas/SourceInfo'
+          description: Source system and process ancestry information. Present on CLI-originated requests.
+      description: Base structure for all encrypted payloads.
+
+    SignatureResponse:
+      type: object
+      properties:
+        signature:
+          type: string
+          format: byte
+          description: Base64url-encoded signature.
+          example: c2lnbmF0dXJl
+        requestId:
+          type: string
+          description: Request correlation ID.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        status:
+          type: string
+          enum:
+            - approved
+            - rejected
+          description: Approval status.
+          example: approved
+        counter:
+          type: integer
+          format: int32
+          description: SSH replay protection counter.
+          example: 1
+        errorCode:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.SigningErrorCode'
+          description: Error code if signing failed.
+        errorMessage:
+          type: string
+          description: Human-readable error message.
+          example: User rejected the request
+        attestation:
+          allOf:
+            - $ref: './common.yaml#/components/schemas/AckAgent.Common.AnonymousAttestation'
+          description: >-
+            Anonymous attestation proving the response came from a genuine device.
+            Present for all approval responses. Inside the encrypted blob.
+      description: Generic signature response for SSH and custom requests.

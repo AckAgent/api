@@ -1,0 +1,654 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Blob Service API
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://ackagent.com/terms
+  description: |-
+    REST API for the AckAgent blob service. Provides server-blind encrypted
+    storage for key metadata, scoped per organization. The service stores
+    E2E encrypted blobs that it cannot read - all encryption/decryption
+    happens on the client. Each organization has its own blob.
+
+    ## Authentication
+
+    All API endpoints use OIDC Bearer token authentication. Tokens are obtained
+    from the login service OIDC provider and validated via JWKS.
+
+    ## Optimistic Locking
+
+    Updates use ETag-based optimistic locking via the If-Match header to prevent
+    concurrent modification conflicts.
+
+    ## Device Attestation
+
+    Write operations require device attestation (X-Device-Auth-Key and
+    X-Assertion headers) to ensure only authenticated mobile devices can
+    modify the blob.
+tags:
+  - name: Health
+    description: Health and readiness check endpoints
+  - name: Blob
+    description: Encrypted blob storage operations
+  - name: History
+    description: Blob version history and restore operations
+paths:
+  /api/v1/organizations/{orgId}/blob:
+    get:
+      operationId: Blob_get
+      summary: Get encrypted blob
+      description: Retrieves the current encrypted blob for the organization. Returns the encrypted data along with per-device wrapped keys and version information. Requires organization membership.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Encrypted blob retrieved successfully. The ETag header contains the current version for optimistic locking.
+          headers:
+            etag:
+              required: true
+              schema:
+                type: string
+              description: Current version ETag for use in subsequent updates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlobResponse'
+              example:
+                encryptedBlob: ZW5jcnlwdGVkIGJsb2IgZGF0YQ==
+                blobNonce: bm9uY2UxMjM0NTY3ODkwMTI=
+                wrappedKeys:
+                  - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+                    ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+                    wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+                    wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+                version: 5
+                updatedAt: '2024-01-15T12:00:00Z'
+        '401':
+          description: Missing or invalid authentication token. Obtain a valid token from the login service.
+        '404':
+          description: No blob exists for this organization. Use POST to create an initial blob.
+      tags:
+        - Blob
+    post:
+      operationId: Blob_create
+      summary: Create encrypted blob
+      description: Creates a new encrypted blob for the organization. Only succeeds if no blob currently exists. Requires device attestation and org membership.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Encrypted blob created successfully. The ETag header contains the initial version.
+          headers:
+            etag:
+              required: true
+              schema:
+                type: string
+              description: Initial version ETag for use in subsequent updates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlobResponse'
+              example:
+                encryptedBlob: ZW5jcnlwdGVkIGJsb2IgZGF0YQ==
+                blobNonce: bm9uY2UxMjM0NTY3ODkwMTI=
+                wrappedKeys:
+                  - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+                    ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+                    wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+                    wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+                version: 1
+                updatedAt: '2024-01-15T12:00:00Z'
+        '400':
+          description: Invalid request payload. Verify all required fields are present and correctly encoded.
+        '401':
+          description: Missing or invalid authentication token.
+        '403':
+          description: Device attestation failed or device is not authorized for write operations.
+        '409':
+          description: A blob already exists for this organization. Use PUT to update the existing blob.
+      tags:
+        - Blob
+      requestBody:
+        description: Encrypted blob data with per-device wrapped keys and attestation.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlobRequest'
+            example:
+              encryptedBlob: ZW5jcnlwdGVkIGJsb2IgZGF0YQ==
+              blobNonce: bm9uY2UxMjM0NTY3ODkwMTI=
+              wrappedKeys:
+                - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+                  ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+                  wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+                  wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+              authPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+              assertion: YXNzZXJ0aW9uIGRhdGE=
+    put:
+      operationId: Blob_update
+      summary: Update encrypted blob
+      description: Updates the encrypted blob using optimistic locking. The If-Match header must contain the current ETag to prevent concurrent modification conflicts.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: string
+        - name: if-match
+          in: header
+          required: true
+          description: Current version ETag from the last GET or update response. Required for optimistic locking.
+          schema:
+            type: string
+          example: '"v5"'
+      responses:
+        '200':
+          description: Encrypted blob updated successfully. The ETag header contains the new version.
+          headers:
+            etag:
+              required: true
+              schema:
+                type: string
+              description: New version ETag for use in subsequent updates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlobResponse'
+              example:
+                encryptedBlob: dXBkYXRlZCBlbmNyeXB0ZWQgYmxvYg==
+                blobNonce: bmV3IG5vbmNlIHZhbHVl
+                wrappedKeys:
+                  - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+                    ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+                    wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+                    wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+                version: 6
+                updatedAt: '2024-01-15T12:05:00Z'
+        '400':
+          description: Invalid request payload. Verify all required fields are present.
+        '401':
+          description: Missing or invalid authentication token.
+        '403':
+          description: Device attestation failed or device is not authorized for write operations.
+        '404':
+          description: No blob exists for this organization. Use POST to create one first.
+        '412':
+          description: ETag mismatch - the blob was modified by another device. Fetch the latest version and retry.
+      tags:
+        - Blob
+      requestBody:
+        description: Updated encrypted blob data with attestation information.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlobRequest'
+            example:
+              encryptedBlob: dXBkYXRlZCBlbmNyeXB0ZWQgYmxvYg==
+              blobNonce: bmV3IG5vbmNlIHZhbHVl
+              wrappedKeys:
+                - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+                  ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+                  wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+                  wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+              authPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+              assertion: YXNzZXJ0aW9uIGRhdGE=
+    delete:
+      operationId: Blob_delete
+      summary: Delete encrypted blob
+      description: Permanently deletes the encrypted blob for the organization. Requires device attestation and org membership. This action cannot be undone.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: string
+        - name: x-device-auth-key
+          in: header
+          required: true
+          description: Lowercase hex-encoded auth public key of the device for attestation verification.
+          schema:
+            type: string
+          example: a1b2c3d4e5f6...
+        - name: x-assertion
+          in: header
+          required: true
+          description: Base64-encoded device assertion proving control of the signing key.
+          schema:
+            type: string
+          example: YXNzZXJ0aW9uIGRhdGE=
+      responses:
+        '204':
+          description: Blob deleted successfully. No content returned.
+        '401':
+          description: Missing or invalid authentication token.
+        '403':
+          description: Device attestation failed or device is not authorized for delete operations.
+      tags:
+        - Blob
+  /api/v1/organizations/{orgId}/blob/history:
+    get:
+      operationId: BlobHistory_list
+      summary: List blob history
+      description: Returns a list of previous blob versions for the organization. Each entry contains the version number and creation timestamp. Use the version number to retrieve or restore a specific version.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of versions to return. Defaults to 20, maximum is 100.
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            maximum: 100
+          example: 10
+      responses:
+        '200':
+          description: History list retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryListResponse'
+              example:
+                history:
+                  - version: 5
+                    createdAt: '2024-01-15T12:00:00Z'
+                  - version: 4
+                    createdAt: '2024-01-14T18:30:00Z'
+                  - version: 3
+                    createdAt: '2024-01-13T09:15:00Z'
+        '401':
+          description: Missing or invalid authentication token.
+      tags:
+        - History
+  /api/v1/organizations/{orgId}/blob/history/{version}:
+    get:
+      operationId: BlobHistoryVersion_get
+      summary: Get history version
+      description: Retrieves a specific historical version of the encrypted blob. Can be used to review previous data before restoring.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: Version number to retrieve.
+          schema:
+            type: integer
+            format: int32
+          example: 3
+      responses:
+        '200':
+          description: Historical version retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryDetailResponse'
+              example:
+                encryptedBlob: aGlzdG9yaWNhbCBibG9iIGRhdGE=
+                blobNonce: aGlzdG9yeSBub25jZQ==
+                wrappedKeys:
+                  - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+                    ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+                    wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+                    wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+                version: 3
+                createdAt: '2024-01-13T09:15:00Z'
+        '401':
+          description: Missing or invalid authentication token.
+        '404':
+          description: Specified version does not exist in the history.
+      tags:
+        - History
+  /api/v1/organizations/{orgId}/blob/restore/{version}:
+    post:
+      operationId: BlobRestore_restore
+      summary: Restore blob from history
+      description: Restores the blob to a previous version from history. Creates a new version with the historical data. Requires device attestation and org membership.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: Version number to restore from.
+          schema:
+            type: integer
+            format: int32
+          example: 3
+        - name: x-device-auth-key
+          in: header
+          required: true
+          description: Lowercase hex-encoded auth public key of the device for attestation verification.
+          schema:
+            type: string
+          example: a1b2c3d4e5f6...
+        - name: x-assertion
+          in: header
+          required: true
+          description: Base64-encoded device assertion proving control of the signing key.
+          schema:
+            type: string
+          example: YXNzZXJ0aW9uIGRhdGE=
+      responses:
+        '200':
+          description: Blob restored successfully to the current version.
+          headers:
+            etag:
+              required: true
+              schema:
+                type: string
+              description: New version ETag after restoration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlobResponse'
+              example:
+                encryptedBlob: cmVzdG9yZWQgYmxvYiBkYXRh
+                blobNonce: cmVzdG9yZWQgbm9uY2U=
+                wrappedKeys:
+                  - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+                    ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+                    wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+                    wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+                version: 7
+                updatedAt: '2024-01-15T12:10:00Z'
+        '201':
+          description: Blob created from historical version (when no current blob exists).
+          headers:
+            etag:
+              required: true
+              schema:
+                type: string
+              description: Initial version ETag after restoration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlobResponse'
+              example:
+                encryptedBlob: cmVzdG9yZWQgYmxvYiBkYXRh
+                blobNonce: cmVzdG9yZWQgbm9uY2U=
+                wrappedKeys:
+                  - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+                    ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+                    wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+                    wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+                version: 1
+                updatedAt: '2024-01-15T12:10:00Z'
+        '401':
+          description: Missing or invalid authentication token.
+        '403':
+          description: Device attestation failed or device is not authorized for restore operations.
+        '404':
+          description: Specified version does not exist in the history.
+      tags:
+        - History
+  /api/v1/health:
+    get:
+      operationId: Health_check
+      summary: Health check
+      description: Returns the current health status of the blob service. Used by load balancers and monitoring systems.
+      parameters: []
+      responses:
+        '200':
+          description: Service is healthy and accepting requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                required:
+                  - status
+              example:
+                status: ok
+      tags:
+        - Health
+  /api/v1/health/ready:
+    get:
+      operationId: HealthReady_check
+      summary: Readiness check
+      description: Returns the readiness status including database connectivity. Used by orchestrators to determine if the service can accept traffic.
+      parameters: []
+      responses:
+        '200':
+          description: Service is ready and all dependencies are healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                required:
+                  - status
+              example:
+                status: ok
+        '503':
+          description: Service is not ready. Database or other dependencies may be unavailable.
+      tags:
+        - Health
+security:
+  - BearerAuth: []
+components:
+  schemas:
+    BlobRequest:
+      type: object
+      required:
+        - encryptedBlob
+        - blobNonce
+        - wrappedKeys
+      properties:
+        encryptedBlob:
+          type: string
+          format: byte
+          description: Base64-encoded encrypted blob data using ChaCha20-Poly1305.
+          example: ZW5jcnlwdGVkIGJsb2IgZGF0YQ==
+        blobNonce:
+          type: string
+          format: byte
+          description: Base64-encoded 12-byte nonce used for blob encryption.
+          example: bm9uY2UxMjM0NTY3ODkwMTI=
+        wrappedKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/WrappedKey'
+          description: Array of per-device wrapped encryption keys.
+          example:
+            - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+              ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+              wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+              wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+        authPublicKeyHex:
+          type: string
+          description: "Lowercase hex-encoded auth public key of the device for attestation. 66 hex chars for P-256, 33 bytes: 0x02/0x03 || X (compressed P-256)."
+          example: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+        assertion:
+          type: string
+          format: byte
+          description: Base64-encoded device assertion for write authorization.
+          example: YXNzZXJ0aW9uIGRhdGE=
+      description: Request payload for creating or updating an encrypted blob with per-device wrapped keys.
+    BlobResponse:
+      type: object
+      required:
+        - encryptedBlob
+        - blobNonce
+        - wrappedKeys
+        - version
+        - updatedAt
+      properties:
+        encryptedBlob:
+          type: string
+          format: byte
+          description: Base64-encoded encrypted blob data.
+          example: ZW5jcnlwdGVkIGJsb2IgZGF0YQ==
+        blobNonce:
+          type: string
+          format: byte
+          description: Base64-encoded nonce used for blob encryption.
+          example: bm9uY2UxMjM0NTY3ODkwMTI=
+        wrappedKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/WrappedKey'
+          description: Array of per-device wrapped encryption keys.
+          example:
+            - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+              ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+              wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+              wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+        version:
+          type: integer
+          format: int32
+          description: Monotonically increasing version number for optimistic locking.
+          example: 5
+        updatedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of the last update.
+          example: '2024-01-15T12:00:00Z'
+      description: Response containing the encrypted blob, wrapped keys, and version metadata.
+    HistoryDetailResponse:
+      type: object
+      required:
+        - encryptedBlob
+        - blobNonce
+        - wrappedKeys
+        - version
+        - createdAt
+      properties:
+        encryptedBlob:
+          type: string
+          format: byte
+          description: Base64-encoded encrypted blob data from this historical version.
+          example: aGlzdG9yaWNhbCBibG9iIGRhdGE=
+        blobNonce:
+          type: string
+          format: byte
+          description: Base64-encoded nonce from this historical version.
+          example: aGlzdG9yeSBub25jZQ==
+        wrappedKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/WrappedKey'
+          description: Per-device wrapped keys from this historical version.
+          example:
+            - encryptionPublicKeyHex: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+              ephemeralPublicHex: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+              wrappedKey: d3JhcHBlZCBrZXkgZGF0YQ==
+              wrappedKeyNonce: d3JhcHBlZCBrZXkgbm9uY2U=
+        version:
+          type: integer
+          format: int32
+          description: Version number of this historical snapshot.
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when this version was created.
+          example: '2024-01-13T09:15:00Z'
+      description: Detailed response for a specific historical version of the blob.
+    HistoryEntry:
+      type: object
+      required:
+        - version
+        - createdAt
+      properties:
+        version:
+          type: integer
+          format: int32
+          description: Version number that can be used to retrieve or restore this snapshot.
+          example: 5
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when this version was created.
+          example: '2024-01-15T12:00:00Z'
+      description: Summary entry for a blob version in the history list.
+    HistoryListResponse:
+      type: object
+      required:
+        - history
+      properties:
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryEntry'
+          description: List of historical blob versions, ordered by version number descending.
+          example:
+            - version: 5
+              createdAt: '2024-01-15T12:00:00Z'
+            - version: 4
+              createdAt: '2024-01-14T18:30:00Z'
+      description: Response containing the list of available historical versions.
+    WrappedKey:
+      type: object
+      required:
+        - encryptionPublicKeyHex
+        - ephemeralPublicHex
+        - wrappedKey
+        - wrappedKeyNonce
+      properties:
+        encryptionPublicKeyHex:
+          type: string
+          description: "Lowercase hex-encoded P-256 ECDH public key of the device that can unwrap this key. 66 hex chars for P-256, 33 bytes: 0x02/0x03 || X (compressed P-256)."
+          example: 02a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+        ephemeralPublicHex:
+          type: string
+          description: "Lowercase hex-encoded ephemeral P-256 public key used for key wrapping. 66 hex chars for P-256, 33 bytes: 0x02/0x03 || X (compressed P-256)."
+          example: 02f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5
+        wrappedKey:
+          type: string
+          format: byte
+          description: Base64-encoded wrapped symmetric key encrypted with ChaCha20-Poly1305.
+          example: d3JhcHBlZCBrZXkgZGF0YQ==
+        wrappedKeyNonce:
+          type: string
+          format: byte
+          description: Base64-encoded 12-byte nonce used for key wrapping.
+          example: d3JhcHBlZCBrZXkgbm9uY2U=
+      description: Per-device wrapped encryption key for multi-device blob access.
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: Bearer
+      description: OAuth2 access token obtained from the login service OIDC provider.
+servers:
+  - url: http://localhost:8082
+    description: Local development server
+    variables: {}
+  - url: https://blob.ackagent.com
+    description: Production server
+    variables: {}

@@ -1,0 +1,39 @@
+{
+  "name": "@ackagent/api",
+  "version": "0.2.5",
+  "type": "module",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": "./index.d.ts",
+    "./client": {
+      "import": "./dist/client.js",
+      "types": "./dist/client.d.ts"
+    },
+    "./relay": "./relay-api.d.ts",
+    "./auth": "./auth-api.d.ts",
+    "./blob": "./blob-api.d.ts",
+    "./org": "./org-api.d.ts",
+    "./protocol": "./protocol-api.d.ts",
+    "./keyauth": "./keyauth-api.d.ts",
+    "./auditchain": "./auditchain-api.d.ts",
+    "./credential-issuer": "./credential-issuer-api.d.ts",
+    "./sas": "./sas-dictionary.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.15.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AckAgent/api.git",
+    "directory": "ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

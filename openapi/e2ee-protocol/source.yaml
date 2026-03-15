@@ -1,0 +1,55 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Protocol - Source Types
+  version: '1.0'
+  description: Source system and process ancestry types for CLI-originated requests.
+paths: {}
+components:
+  schemas:
+    ProcessEntry:
+      type: object
+      required:
+        - pid
+        - username
+        - command
+      properties:
+        pid:
+          type: integer
+          format: int32
+          description: Process ID.
+          example: 12345
+        username:
+          type: string
+          description: Username running the process.
+          example: root
+        command:
+          type: string
+          description: Command line of the process.
+          example: /usr/bin/sudo apt update
+      description: Entry in a process tree.
+
+    SourceInfo:
+      type: object
+      properties:
+        hostname:
+          type: string
+          description: Source machine hostname.
+          example: laptop.local
+        localIp:
+          type: string
+          description: Local/private IP address.
+          example: '192.168.1.50'
+        username:
+          type: string
+          description: User running the process.
+          example: admin
+        command:
+          type: string
+          description: Command line of the current process.
+          example: git commit -S -m "message"
+        processChain:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessEntry'
+          description: Full process tree from current process up to init.
+      description: Information about the requesting system and process ancestry.

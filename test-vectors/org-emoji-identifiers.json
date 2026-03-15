@@ -1,0 +1,13 @@
+[
+  { "index": 0, "indices": [0] },
+  { "index": 1, "indices": [1] },
+  { "index": 255, "indices": [255] },
+  { "index": 256, "indices": [0, 0] },
+  { "index": 257, "indices": [0, 1] },
+  { "index": 512, "indices": [1, 0] },
+  { "index": 65791, "indices": [255, 255] },
+  { "index": 65792, "indices": [0, 0, 0] },
+  { "index": 65793, "indices": [0, 0, 1] },
+  { "index": 100000, "indices": [0, 133, 160] },
+  { "index": 16843007, "indices": [255, 255, 255] }
+]

@@ -1,0 +1,1228 @@
+openapi: 3.0.0
+info:
+  title: AckAgent Organization Service API
+  version: '1.0'
+  license:
+    name: Proprietary
+    url: https://ackagent.com/terms
+  description: |-
+    REST API for organization management.
+
+    ## Features
+
+    - Organization CRUD operations
+    - Member management
+    - Invitation system
+    - Service account management
+
+    ## Authentication
+
+    Most endpoints require OIDC Bearer token authentication with organization membership.
+tags:
+  - name: Health
+    description: Service health checks
+  - name: Organizations
+    description: Organization CRUD operations
+  - name: Organization Members
+    description: Member management
+  - name: Invitations
+    description: Invitation management
+  - name: Service Accounts
+    description: Service account management
+  - name: Invite Codes
+    description: Invite code management for free-tier member invitations
+  - name: Internal
+    description: Service-to-service communication (not publicly accessible)
+paths:
+  /health:
+    get:
+      operationId: Health_check
+      summary: Health check
+      description: Health check
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+      tags:
+        - Health
+      security:
+        - {}
+  /health/ready:
+    get:
+      operationId: HealthReady_check
+      summary: Readiness check
+      description: Readiness check - includes database connectivity check
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service unavailable.
+      tags:
+        - Health
+      security:
+        - {}
+  /api/v1/org-by-slug/{slug}:
+    get:
+      operationId: OrganizationBySlug_get
+      summary: Get organization by slug
+      description: Get organization by slug - public endpoint for enrollment
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: URL-friendly organization identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Organizations
+      security:
+        - {}
+  /api/v1/organizations:
+    post:
+      operationId: Organizations_create
+      summary: Create organization
+      description: Create organization - self-service signup with email verification
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationFullInfo'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '409':
+          description: The request conflicts with the current state of the server.
+      tags:
+        - Organizations
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrganizationRequest'
+      security:
+        - {}
+  /api/v1/organizations/verify-email:
+    post:
+      operationId: OrganizationVerifyEmail_verify
+      summary: Verify organization email
+      description: Verify organization email - verifies admin email with token
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Verification token
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyEmailResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+      tags:
+        - Organizations
+      security:
+        - {}
+  /api/v1/organizations/{id}:
+    get:
+      operationId: OrganizationById_get
+      summary: Get organization by ID
+      description: Get organization by ID - requires org membership
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationFullInfo'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Organizations
+    put:
+      operationId: OrganizationById_update
+      summary: Update organization
+      description: Update organization - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationFullInfo'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - Organizations
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrganizationRequest'
+  /api/v1/invitations/accept:
+    post:
+      operationId: InvitationAccept_accept
+      summary: Accept invitation
+      description: Accept an organization invitation using a token from the invitation email
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptInvitationResponse'
+        '400':
+          description: Invalid or expired invitation token.
+        '409':
+          description: User is already a member of the organization.
+      tags:
+        - Invitations
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+  /api/v1/organizations/{id}/invitations:
+    get:
+      operationId: OrganizationInvitations_list
+      summary: List invitations
+      description: List invitations - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListInvitationsResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - Invitations
+    post:
+      operationId: OrganizationInvitations_create
+      summary: Create invitation
+      description: Create invitation - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationInfo'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '409':
+          description: The request conflicts with the current state of the server.
+      tags:
+        - Invitations
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvitationRequest'
+  /api/v1/organizations/{id}/invitations/{invid}:
+    delete:
+      operationId: OrganizationInvitationById_revoke
+      summary: Revoke invitation
+      description: Revoke invitation - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: invid
+          in: path
+          required: true
+          description: Invitation identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationRevokedResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Invitations
+  /api/v1/organizations/{id}/members:
+    get:
+      operationId: OrganizationMembers_list
+      summary: List organization members
+      description: List organization members
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListMembersResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - Organization Members
+    post:
+      operationId: OrganizationMembers_add
+      summary: Add organization member
+      description: Add organization member - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberInfo'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+        '409':
+          description: The request conflicts with the current state of the server.
+      tags:
+        - Organization Members
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberRequest'
+  /api/v1/organizations/{id}/members/{uid}:
+    put:
+      operationId: OrganizationMemberById_update
+      summary: Update organization member
+      description: Update organization member - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: uid
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberUpdatedResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Organization Members
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRequest'
+    delete:
+      operationId: OrganizationMemberById_remove
+      summary: Remove organization member
+      description: Remove organization member - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: uid
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberUpdatedResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Organization Members
+  /api/v1/organizations/{id}/service-accounts:
+    get:
+      operationId: OrganizationServiceAccounts_list
+      summary: List service accounts
+      description: List service accounts - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListServiceAccountsResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - Service Accounts
+    post:
+      operationId: OrganizationServiceAccounts_create
+      summary: Create service account
+      description: Create service account - requires admin role, returns API key only on creation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateServiceAccountResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '409':
+          description: The request conflicts with the current state of the server.
+      tags:
+        - Service Accounts
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateServiceAccountRequest'
+  /api/v1/organizations/{id}/service-accounts/{said}:
+    delete:
+      operationId: OrganizationServiceAccountById_delete
+      summary: Delete service account
+      description: Delete service account - requires admin role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier
+          schema:
+            type: string
+        - name: said
+          in: path
+          required: true
+          description: Service account identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceAccountDeletedResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Service Accounts
+  /api/v1/organizations/{id}/invite-codes:
+    post:
+      operationId: OrganizationInviteCodes_create
+      summary: Create invite code
+      description: Create an invite code for the organization. Requires owner role.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Invite code created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteCodeInfo'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - Invite Codes
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInviteCodeRequest'
+    get:
+      operationId: OrganizationInviteCodes_list
+      summary: List invite codes
+      description: List all invite codes for the organization. Requires owner role.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListInviteCodesResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+      tags:
+        - Invite Codes
+  /api/v1/organizations/{id}/invite-codes/{codeId}:
+    delete:
+      operationId: OrganizationInviteCodeById_revoke
+      summary: Revoke invite code
+      description: Revoke an invite code. Requires owner role.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: string
+        - name: codeId
+          in: path
+          required: true
+          description: Invite code ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteCodeRevokedResponse'
+        '401':
+          description: Access is unauthorized.
+        '403':
+          description: Access is forbidden.
+        '404':
+          description: The server cannot find the requested resource.
+      tags:
+        - Invite Codes
+  /api/v1/invite-codes/{code}:
+    get:
+      operationId: InviteCodePreview_get
+      summary: Preview invite code
+      description: Get organization preview from an invite code. Public endpoint, no auth required.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          description: Invite code (XXX-YYY-ZZZ format)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteCodePreviewResponse'
+        '404':
+          description: Invalid or expired invite code.
+      tags:
+        - Invite Codes
+      security:
+        - {}
+  /api/v1/organizations/join:
+    post:
+      operationId: OrganizationJoin_join
+      summary: Join organization via invite code
+      description: Join an organization using an invite code. Requires authentication.
+      parameters: []
+      responses:
+        '200':
+          description: Successfully joined the organization.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinOrganizationResponse'
+        '400':
+          description: Invalid invite code or organization at capacity.
+        '401':
+          description: Access is unauthorized.
+        '409':
+          description: Already a member of this organization.
+      tags:
+        - Invite Codes
+      requestBody:
+        required: true
+        description: Request payload
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinOrganizationRequest'
+security:
+  - BearerAuth: []
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+      description: Health check response
+    AcceptInvitationRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Invitation token from the invitation email
+      description: Accept invitation request
+    AcceptInvitationResponse:
+      type: object
+      required:
+        - organizationId
+        - organizationName
+        - organizationSlug
+        - membershipId
+        - role
+      properties:
+        organizationId:
+          type: string
+        organizationName:
+          type: string
+        organizationSlug:
+          type: string
+        membershipId:
+          type: string
+        role:
+          type: string
+      description: Accept invitation response with organization and membership details
+    AddMemberRequest:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+        role:
+          type: string
+      description: Add member request
+    CreateInvitationRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+        role:
+          type: string
+      description: Create invitation request
+    CreateOrganizationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Display name (optional for free tier)
+        slug:
+          type: string
+          description: URL-friendly identifier (optional for free tier)
+        adminEmail:
+          type: string
+          description: Admin email (optional for free tier)
+      description: Create organization request (all fields optional for free tier)
+    CreateServiceAccountRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+          description: |
+            Permissions for this service account. Valid values:
+            - relay:request — Create and poll signing requests (required for PAM)
+            - audit:read — Read audit event logs
+            - firewall:read — Read firewall logs
+            Defaults to empty (no permissions) if not specified.
+      description: Create service account request
+    CreateServiceAccountResponse:
+      type: object
+      required:
+        - apiKey
+      properties:
+        apiKey:
+          type: string
+          description: The API key - only returned on creation
+      allOf:
+        - $ref: '#/components/schemas/ServiceAccountInfo'
+      description: Create service account response (includes API key only on creation)
+    InternalOrganizationConfigResponse:
+      type: object
+      required:
+        - id
+        - status
+        - firewallEnabled
+        - auditEnabled
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        firewallEnabled:
+          type: boolean
+        auditEnabled:
+          type: boolean
+        firewallConfig:
+          type: object
+        auditPublicKeyHex:
+          type: string
+          description: Lowercase hex-encoded Ed25519 audit public key (64 hex chars, 32 bytes)
+      description: Internal organization config response
+    InvitationInfo:
+      type: object
+      required:
+        - id
+        - email
+        - role
+        - status
+        - expiresAt
+        - createdAt
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      description: Invitation information
+    InvitationRevokedResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+      description: Invitation revoked response
+    ListInvitationsResponse:
+      type: object
+      required:
+        - invitations
+      properties:
+        invitations:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvitationInfo'
+      description: List invitations response
+    ListMembersResponse:
+      type: object
+      required:
+        - members
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberInfo'
+      description: List members response
+    ListServiceAccountsResponse:
+      type: object
+      required:
+        - serviceAccounts
+      properties:
+        serviceAccounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceAccountInfo'
+      description: List service accounts response
+    MemberInfo:
+      type: object
+      required:
+        - id
+        - userId
+        - role
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        emojiIndex:
+          type: integer
+          description: User's sequential emoji index within the organization
+        idpEmail:
+          type: string
+        lastIdpSync:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      description: Organization member information
+    MemberUpdatedResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+      description: Member updated response
+    Organization:
+      type: object
+      required:
+        - id
+        - emojiIndex
+        - tier
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+          description: URL-friendly identifier (e.g., "acme-corp"). Optional for free tier.
+        name:
+          type: string
+          description: Display name (e.g., "Acme Corporation"). Optional for free tier.
+        emojiIndex:
+          type: integer
+          format: int64
+          description: Sequential emoji index for client-side rendering via EmojiFromIndex()
+        tier:
+          type: string
+          description: Organization tier (free, enterprise)
+        memberLimit:
+          type: integer
+          description: Maximum number of members allowed
+        logoUrl:
+          type: string
+          description: Organization's logo URL (optional)
+        ssoProvider:
+          type: string
+          description: SSO provider identifier (optional)
+        policies:
+          allOf:
+            - $ref: '#/components/schemas/OrganizationPolicies'
+          description: Organization policies
+        createdAt:
+          type: string
+          format: date-time
+          description: When the organization was created
+      description: Organization information (minimal for enrollment)
+    OrganizationFullInfo:
+      type: object
+      required:
+        - id
+        - status
+        - tier
+        - emojiIndex
+        - auditEnabled
+        - firewallEnabled
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: Display name (optional for free tier)
+        slug:
+          type: string
+          description: URL-friendly identifier (optional for free tier)
+        status:
+          type: string
+        tier:
+          type: string
+          description: Organization tier (free, enterprise)
+        emojiIndex:
+          type: integer
+          format: int64
+          description: Sequential emoji index for client-side rendering via EmojiFromIndex()
+        memberLimit:
+          type: integer
+          description: Maximum number of members allowed
+        memberCount:
+          type: integer
+          description: Current number of members
+        adminEmail:
+          type: string
+          description: Admin email (optional for free tier)
+        adminEmailVerified:
+          type: boolean
+        trialEndsAt:
+          type: string
+          format: date-time
+        subscriptionStatus:
+          type: string
+        idpType:
+          type: string
+        auditEnabled:
+          type: boolean
+        firewallEnabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      description: Full organization information for management
+    OrganizationPolicies:
+      type: object
+      properties:
+        firewallEnabled:
+          type: boolean
+        auditEnabled:
+          type: boolean
+        requiredAttestationLevel:
+          type: string
+      description: Organization policy settings
+    ServiceAccountDeletedResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+      description: Service account deleted response
+    ServiceAccountInfo:
+      type: object
+      required:
+        - id
+        - name
+        - apiKeyPrefix
+        - permissions
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        apiKeyPrefix:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        lastUsedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      description: Service account information
+    UpdateMemberRequest:
+      type: object
+      properties:
+        role:
+          type: string
+        status:
+          type: string
+      description: Update member request
+    UpdateOrganizationRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+      description: Update organization request
+    VerifyEmailResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+      description: Verify email response
+    CreateInviteCodeRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          description: Role to assign to users who join with this code (default "member")
+        maxUses:
+          type: integer
+          description: Maximum number of uses (null for unlimited)
+        expiresInHours:
+          type: integer
+          description: Hours until the code expires (null for never)
+      description: Create invite code request
+    InviteCodeInfo:
+      type: object
+      required:
+        - id
+        - code
+        - role
+        - status
+        - useCount
+        - createdAt
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+          description: Invite code in XXX-YYY-ZZZ format
+        role:
+          type: string
+        maxUses:
+          type: integer
+        useCount:
+          type: integer
+        status:
+          type: string
+          description: Status of the invite code (active, revoked, exhausted)
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      description: Invite code information
+    InviteCodeRevokedResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+      description: Invite code revoked response
+    ListInviteCodesResponse:
+      type: object
+      required:
+        - inviteCodes
+      properties:
+        inviteCodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/InviteCodeInfo'
+      description: List invite codes response
+    InviteCodePreviewResponse:
+      type: object
+      required:
+        - organizationId
+        - emojiIndex
+        - memberCount
+        - tier
+      properties:
+        organizationId:
+          type: string
+        emojiIndex:
+          type: integer
+          format: int64
+          description: Organization emoji index for client-side rendering
+        name:
+          type: string
+          description: Organization name (if set)
+        memberCount:
+          type: integer
+          description: Current number of members
+        tier:
+          type: string
+          description: Organization tier
+      description: Preview response for an invite code (public, no auth required)
+    JoinOrganizationRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          description: Invite code (XXX-YYY-ZZZ format)
+      description: Join organization via invite code
+    JoinOrganizationResponse:
+      type: object
+      required:
+        - organizationId
+        - emojiIndex
+        - membershipId
+        - role
+        - userEmojiIndex
+      properties:
+        organizationId:
+          type: string
+        emojiIndex:
+          type: integer
+          format: int64
+          description: Organization emoji index for client-side rendering
+        membershipId:
+          type: string
+        role:
+          type: string
+        userEmojiIndex:
+          type: integer
+          description: User's assigned emoji index within the organization
+      description: Response after successfully joining an organization
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth2 access token issued by the OIDC service.
+servers:
+  - url: http://127.0.0.1:4455
+    description: Local development
+  - url: https://org.ackagent.com
+    description: Production

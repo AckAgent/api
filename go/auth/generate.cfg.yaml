@@ -1,0 +1,9 @@
+package: auth
+generate:
+  models: true
+  client: true
+output: gen.go
+output-options:
+  skip-prune: true
+import-mapping:
+  e2ee-protocol-openapi.yaml: github.com/clarifiedlabs/ackagent-monorepo/api/go/protocol

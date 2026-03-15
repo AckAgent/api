@@ -1,0 +1,6 @@
+package: protocol
+generate:
+  models: true
+output: gen.go
+output-options:
+  skip-prune: true
